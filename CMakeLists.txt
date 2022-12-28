@@ -13,6 +13,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+if(EXISTS "${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
+    include("${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
+endif()
+
 function(svmegn_add_flags target)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
     set_property(TARGET ${target} PROPERTY CXX_EXTENSIONS OFF)
