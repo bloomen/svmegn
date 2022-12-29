@@ -10,7 +10,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def read_conf(filename):
-    config = configparser.ConfigParser(interpolation=None, allow_no_value=True)
+    config = configparser.ConfigParser(interpolation=None, allow_no_value=True, delimiters=('=',))
     with open(filename) as f:
         config.read_file(f)
     return config
