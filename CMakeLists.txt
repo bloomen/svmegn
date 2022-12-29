@@ -57,18 +57,18 @@ install(TARGETS svmegn ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HE
 
 if(svmegn_build_tests)
     enable_testing()
-    add_executable(svmegn_test include/svmegn.h test/catch_amalgamated.hpp test/catch_amalgamated.cpp test/test.cpp)
+    add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    target_link_libraries(svmegn_test svmegn)
+    target_link_libraries(svmegn_test svmegn Catch2d)
     add_test(svmegn_test svmegn_test)
 endif()
+
+file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp *.h *.hpp)
 
 add_custom_target(
     svmegn_format
     COMMAND clang-format
     -style=file
     -i
-    ${PROJECT_SOURCE_DIR}/include/svmegn.h
-    ${PROJECT_SOURCE_DIR}/src/svmegn.cpp
-    ${PROJECT_SOURCE_DIR}/test/test.cpp
+    ${ALL_SOURCE_FILES}
 )
