@@ -59,7 +59,8 @@ if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    target_link_libraries(svmegn_test svmegn Catch2d)
+
+    target_link_libraries(svmegn_test svmegn Catch2$<$<CONFIG:Debug>:d>)
     add_test(svmegn_test svmegn_test)
 endif()
 
