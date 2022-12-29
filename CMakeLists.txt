@@ -62,3 +62,13 @@ if(svmegn_build_tests)
     target_link_libraries(svmegn_test svmegn)
     add_test(svmegn_test svmegn_test)
 endif()
+
+add_custom_target(
+    svmegn_format
+    COMMAND clang-format
+    -style=file
+    -i
+    ${PROJECT_SOURCE_DIR}/include/svmegn.h
+    ${PROJECT_SOURCE_DIR}/src/svmegn.cpp
+    ${PROJECT_SOURCE_DIR}/test/test.cpp
+)

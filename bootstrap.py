@@ -66,11 +66,11 @@ def main():
         ldflags = []
         for name, version in packages.items():
             dir = find_package_dir(name, version, build_type)
-            cxxflags.append('-I{}/include'.format(dir))
-            ldflags.append('-L{}/lib'.format(dir))
+            cxxflags.append('"{}/include"'.format(dir))
+            ldflags.append('"{}/lib"'.format(dir))
         with open(os.path.join(THIS_DIR, '{}.cmake'.format(build_type)), 'w') as f:
-            f.write('set(CMAKE_CXX_FLAGS "{}")\n'.format(' '.join(cxxflags)))
-            f.write('set(CMAKE_EXE_LINKER_FLAGS "{}")\n'.format(' '.join(ldflags)))
+            f.write('include_directories({})\n'.format(' '.join(cxxflags)))
+            f.write('link_directories({})\n'.format(' '.join(ldflags)))
         garbage = [
             'conan.lock',
             'conanbuildinfo.txt',
@@ -78,8 +78,9 @@ def main():
             'graph_info.json',
         ]
         for g in garbage:
-            if os.path.exists(g):
-                os.remove(g)
+            fg = os.path.join(THIS_DIR, g)
+            if os.path.exists(fg):
+                os.remove(fg)
 
 
 if __name__ == '__main__':
