@@ -46,40 +46,40 @@ def find_package_dir(name, version, build_type):
 
 def main():
     parser = argparse.ArgumentParser('Bootstraps this project using conan')
-    parser.add_argument('--build_type', type=str, required=True)
-    args = parser.parse_args()
-    subprocess.check_call([
-        'pip3',
-        'install',
-        'conan',
-    ])
-    subprocess.check_call([
-        'conan',
-        'install',
-        '--build=missing',
-        THIS_DIR,
-        '-s',
-        'build_type={}'.format(args.build_type),
-    ])
-    packages = get_packages()
-    cxxflags = []
-    ldflags = []
-    for name, version in packages.items():
-        dir = find_package_dir(name, version, args.build_type)
-        cxxflags.append('-I{}/include'.format(dir))
-        ldflags.append('-L{}/lib'.format(dir))
-    with open(os.path.join(THIS_DIR, '{}.cmake'.format(args.build_type)), 'w') as f:
-        f.write('set(CMAKE_CXX_FLAGS "{}")\n'.format(' '.join(cxxflags)))
-        f.write('set(CMAKE_EXE_LINKER_FLAGS "{}")\n'.format(' '.join(ldflags)))
-    garbage = [
-        'conan.lock',
-        'conanbuildinfo.txt',
-        'conaninfo.txt',
-        'graph_info.json',
-    ]
-    for g in garbage:
-        if os.path.exists(g):
-            os.remove(g)
+    parser.parse_args()
+    for build_type in ['Debug', 'Release']:
+        subprocess.check_call([
+            'pip3',
+            'install',
+            'conan',
+        ])
+        subprocess.check_call([
+            'conan',
+            'install',
+            '--build=missing',
+            THIS_DIR,
+            '-s',
+            'build_type={}'.format(build_type),
+        ])
+        packages = get_packages()
+        cxxflags = []
+        ldflags = []
+        for name, version in packages.items():
+            dir = find_package_dir(name, version, build_type)
+            cxxflags.append('-I{}/include'.format(dir))
+            ldflags.append('-L{}/lib'.format(dir))
+        with open(os.path.join(THIS_DIR, '{}.cmake'.format(build_type)), 'w') as f:
+            f.write('set(CMAKE_CXX_FLAGS "{}")\n'.format(' '.join(cxxflags)))
+            f.write('set(CMAKE_EXE_LINKER_FLAGS "{}")\n'.format(' '.join(ldflags)))
+        garbage = [
+            'conan.lock',
+            'conanbuildinfo.txt',
+            'conaninfo.txt',
+            'graph_info.json',
+        ]
+        for g in garbage:
+            if os.path.exists(g):
+                os.remove(g)
 
 
 if __name__ == '__main__':
