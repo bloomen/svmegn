@@ -16,38 +16,15 @@ def read_conf(filename):
     return config
 
 
-def get_packages():
-    config = read_conf(os.path.join(THIS_DIR, 'conanfile.txt'))
-    packages = {}
-    for pkg in config['requires'].keys():
-        elements = pkg.split('/')
-        packages[elements[0]] = elements[1]
-    return packages
-
-
-def find_package_dir(name, version, build_type):
-    base_dir = os.path.join(os.path.expanduser('~'),
-                            '.conan',
-                            'data',
-                             name,
-                             version,
-                             '_',
-                             '_',
-                             'package')
-    for dir in os.listdir(base_dir):
-         info = read_conf(os.path.join(base_dir, dir, 'conaninfo.txt'))
-         if 'build_type' not in info['settings']:
-             # header-only lib
-             return os.path.join(base_dir, dir)
-         if info['settings']['build_type'] == build_type:
-             return os.path.join(base_dir, dir)
-    assert False, "No package dir found for: {}, {}, {}".format(name, version, build_type)
+def to_dirs(keys):
+    return ['"{}"'.format(d.replace("\\", "\\\\")) for d in keys]
 
 
 def main():
     parser = argparse.ArgumentParser('Bootstraps this project using conan')
     parser.add_argument('--build_type', type=str, required=False)
     args = parser.parse_args()
+
     types = [args.build_type] if args.build_type else ['Debug', 'Release']
     for build_type in types:
         subprocess.check_call([
@@ -55,6 +32,7 @@ def main():
             'install',
             'conan',
         ])
+
         subprocess.check_call([
             'conan',
             'install',
@@ -63,16 +41,15 @@ def main():
             '-s',
             'build_type={}'.format(build_type),
         ])
-        packages = get_packages()
-        cxxflags = []
-        ldflags = []
-        for name, version in packages.items():
-            dir = find_package_dir(name, version, build_type)
-            cxxflags.append('"{}"'.format(os.path.join(dir, 'include').replace("\\", "\\\\")))
-            ldflags.append('"{}"'.format(os.path.join(dir, 'lib').replace("\\", "\\\\")))
+
+        config = read_conf(os.path.join(THIS_DIR, 'conanbuildinfo.txt'))
+        includedirs = to_dirs(config['includedirs'].keys())
+        libdirs = to_dirs(config['libdirs'].keys())
+
         with open(os.path.join(THIS_DIR, '{}.cmake'.format(build_type)), 'w') as f:
-            f.write('include_directories({})\n'.format(' '.join(cxxflags)))
-            f.write('link_directories({})\n'.format(' '.join(ldflags)))
+            f.write('include_directories({})\n'.format(' '.join(includedirs)))
+            f.write('link_directories({})\n'.format(' '.join(libdirs)))
+
         garbage = [
             'conan.lock',
             'conanbuildinfo.txt',

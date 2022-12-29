@@ -7,7 +7,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 #pragma GCC diagnostic pop
 
 namespace svmegn
