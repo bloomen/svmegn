@@ -66,8 +66,8 @@ def main():
         ldflags = []
         for name, version in packages.items():
             dir = find_package_dir(name, version, build_type)
-            cxxflags.append('"{}/include"'.format(dir))
-            ldflags.append('"{}/lib"'.format(dir))
+            cxxflags.append('"{}"'.format(os.path.join(dir, 'include').replace("\\", "\\\\")))
+            ldflags.append('"{}"'.format(os.path.join(dir, 'lib').replace("\\", "\\\\")))
         with open(os.path.join(THIS_DIR, '{}.cmake'.format(build_type)), 'w') as f:
             f.write('include_directories({})\n'.format(' '.join(cxxflags)))
             f.write('link_directories({})\n'.format(' '.join(ldflags)))
