@@ -10,13 +10,11 @@ if(svmegn_enable_asan AND svmegn_enable_tsan)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
-    if(EXISTS "${PROJECT_SOURCE_DIR}/Release.cmake")
-        include("${PROJECT_SOURCE_DIR}/Release.cmake")
-    endif()
-else()
-    if(EXISTS "${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
-        include("${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
-    endif()
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
+
+if(EXISTS "${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
+    include("${PROJECT_SOURCE_DIR}/${CMAKE_BUILD_TYPE}.cmake")
 endif()
 
 function(svmegn_add_flags target)

@@ -46,8 +46,10 @@ def find_package_dir(name, version, build_type):
 
 def main():
     parser = argparse.ArgumentParser('Bootstraps this project using conan')
-    parser.parse_args()
-    for build_type in ['Debug', 'Release']:
+    parser.add_argument('--build_type', type=str, required=False)
+    args = parser.parse_args()
+    types = [args.build_type] if args.build_type else ['Debug', 'Release']
+    for build_type in types:
         subprocess.check_call([
             'pip3',
             'install',
