@@ -26,7 +26,7 @@ def get_packages():
 
 
 def find_package_dir(name, version, build_type):
-    base_dir = os.path.join(os.environ['HOME'], 
+    base_dir = os.path.join(os.path.expanduser('~'),
                             '.conan',
                             'data',
                              name,
