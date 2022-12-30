@@ -16,7 +16,7 @@
 namespace svmegn
 {
 
-enum class ModelType
+enum class SVMType
 {
     C_SVC = 0,
     NU_SVC = 1,
@@ -39,7 +39,7 @@ struct Training
     double cache_size = 200; // in MB
     double eps = 0.001; // stopping criteria
     double C = 1.0; // for C_SVC, EPSILON_SVR and NU_SVR
-    int nr_weight; // for C_SVC
+    int nr_weight = 0; // for C_SVC
     Eigen::VectorXi weight_label; // for C_SVC
     Eigen::VectorXd weight; // for C_SVC
     double nu = 0.5; // for NU_SVC, ONE_CLASS, and NU_SVR
@@ -50,7 +50,7 @@ struct Training
 
 struct Parameters
 {
-    ModelType model_type = ModelType::C_SVC;
+    SVMType svm_type = SVMType::C_SVC;
     KernelType kernel_type = KernelType::RBF;
     int degree = 3; // for poly
     double gamma = 1.0; // for poly/rbf/sigmoid
@@ -72,12 +72,19 @@ class SVM
 public:
     ~SVM();
 
-    static SVM
-    train(Parameters params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y);
+    SVM(const SVM&);
+    SVM&
+    operator=(const SVM&);
+    SVM(SVM&&) = default;
+    SVM&
+    operator=(SVM&&) = default;
 
-    Eigen::MatrixXd
+    static SVM
+    train(const Parameters& params,
+          const Eigen::MatrixXd& X,
+          const Eigen::VectorXd& y);
+
+    Eigen::VectorXd
     predict(const Eigen::MatrixXd& X) const;
 
     void
