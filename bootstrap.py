@@ -46,7 +46,10 @@ def main():
         includedirs = to_dirs(config['includedirs'].keys())
         libdirs = to_dirs(config['libdirs'].keys())
 
-        with open(os.path.join(THIS_DIR, '{}.cmake'.format(build_type)), 'w') as f:
+        cmake_dir = os.path.join(THIS_DIR, 'cmake')
+        if not os.path.exists(cmake_dir):
+            os.mkdir(cmake_dir)
+        with open(os.path.join(cmake_dir, '{}.cmake'.format(build_type)), 'w') as f:
             f.write('include_directories({})\n'.format(' '.join(includedirs)))
             f.write('link_directories({})\n'.format(' '.join(libdirs)))
 

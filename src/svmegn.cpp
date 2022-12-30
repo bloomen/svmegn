@@ -10,4 +10,37 @@
 namespace svmegn
 {
 
+struct SVM::Impl
+{
+};
+
+SVM::~SVM()
+{
 }
+
+SVM
+SVM::train(Parameters params,
+           const Eigen::MatrixXd& X,
+           const Eigen::MatrixXd& y)
+{
+    return {};
+}
+
+Eigen::MatrixXd
+SVM::predict(const Eigen::MatrixXd& X) const
+{
+    return {};
+}
+
+void
+SVM::save(std::ostream& os) const
+{
+}
+
+SVM
+SVM::load(std::istream& os)
+{
+    return {};
+}
+
+} // namespace svmegn
