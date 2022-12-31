@@ -75,6 +75,7 @@ public:
     SVM(const SVM&);
     SVM&
     operator=(const SVM&);
+
     SVM(SVM&&) = default;
     SVM&
     operator=(SVM&&) = default;

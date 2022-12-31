@@ -18,6 +18,8 @@ namespace svmegn
 namespace
 {
 
+constexpr int prob_density_mark_count = 10;
+
 class ErrorThrower
 {
 public:
@@ -55,6 +57,104 @@ public:
 private:
     std::string m_msg;
 };
+
+void
+free_content(svm_model& model)
+{
+    //    if (model.SV)
+    //    {
+    //        for (int i = 0; i < model.l; ++i)
+    //        {
+    //                        delete[] model.SV[i];
+    //        }
+    //    }
+    svm_free_model_content(&model);
+}
+
+void
+copy_content(const svm_model& from, svm_model& to)
+{
+    to.param = from.param;
+    to.nr_class = from.nr_class;
+    to.l = from.l;
+
+    if (from.SV)
+    {
+        to.SV = (svm_node**)malloc(to.l);
+        for (int i = 0; i < to.l; ++i)
+        {
+            int j = 0;
+            while (from.SV[i][j++].index >= 0)
+                ;
+            to.SV[i] = (svm_node*)malloc(j);
+            std::copy(from.SV[i], from.SV[i] + j, to.SV[i]);
+        }
+    }
+
+    if (from.sv_coef)
+    {
+        const auto size = to.nr_class - 1;
+        to.sv_coef = (double**)malloc(size);
+        for (int i = 0; i < size; ++i)
+        {
+            to.sv_coef[i] = (double*)malloc(to.l);
+            std::copy(from.sv_coef[i], from.sv_coef[i] + to.l, to.sv_coef[i]);
+        }
+    }
+
+    if (from.rho)
+    {
+        const auto size = to.nr_class * (to.nr_class - 1) / 2;
+        to.rho = (double*)malloc(size);
+        std::copy(from.rho, from.rho + size, to.rho);
+    }
+
+    if (from.probA)
+    {
+        const auto size = to.nr_class * (to.nr_class - 1) / 2;
+        to.probA = (double*)malloc(size);
+        std::copy(from.probA, from.probA + size, to.probA);
+    }
+
+    if (from.probB)
+    {
+        const auto size = to.nr_class * (to.nr_class - 1) / 2;
+        to.probB = (double*)malloc(size);
+        std::copy(from.probB, from.probB + size, to.probB);
+    }
+
+    if (from.prob_density_marks)
+    {
+        constexpr auto size = prob_density_mark_count;
+        to.prob_density_marks = (double*)malloc(size);
+        std::copy(from.prob_density_marks,
+                  from.prob_density_marks + size,
+                  to.prob_density_marks);
+    }
+
+    if (from.sv_indices)
+    {
+        const auto size = to.l;
+        to.sv_indices = (int*)malloc(size);
+        std::copy(from.sv_indices, from.sv_indices + size, to.sv_indices);
+    }
+
+    if (from.label)
+    {
+        const auto size = to.nr_class;
+        to.label = (int*)malloc(size);
+        std::copy(from.label, from.label + size, to.label);
+    }
+
+    if (from.nSV)
+    {
+        const auto size = to.nr_class;
+        to.nSV = (int*)malloc(size);
+        std::copy(from.nSV, from.nSV + size, to.nSV);
+    }
+
+    to.free_sv = from.free_sv;
+}
 
 svm_parameter
 convert(const Parameters& ip)
@@ -95,11 +195,14 @@ struct ProblemDeleter
     {
         if (prob)
         {
-            for (int i = 0; i < prob->l; ++i)
+            if (prob->x)
             {
-                delete[] prob->x[i];
+                for (int i = 0; i < prob->l; ++i)
+                {
+                    delete[] prob->x[i];
+                }
+                delete[] prob->x;
             }
-            delete[] prob->x;
             delete prob;
         }
     }
@@ -140,7 +243,7 @@ struct ModelDeleter
     {
         if (model)
         {
-            svm_free_model_content(model);
+            free_content(*model);
             free(model);
         }
     }
@@ -168,8 +271,9 @@ struct SVM::Impl
     std::unique_ptr<svm_model, ModelDeleter> m_model;
 };
 
-SVM::SVM(const SVM&)
+SVM::SVM(const SVM& other)
 {
+    *this = other;
 }
 
 SVM&
@@ -177,10 +281,11 @@ SVM::operator=(const SVM& other)
 {
     if (this != &other)
     {
+        m_impl.reset();
         m_impl = std::make_unique<Impl>();
         m_impl->m_model = std::unique_ptr<svm_model, ModelDeleter>{
             new svm_model{}, ModelDeleter{}};
-        // TODO copy from other
+        copy_content(*other.m_impl->m_model, *m_impl->m_model);
     }
     return *this;
 }
