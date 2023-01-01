@@ -8,10 +8,14 @@
 #include <memory>
 #include <optional>
 
+#if __clang__ || __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
+#endif
 #include <Eigen/Core>
+#if __clang__ || __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 namespace svmegn
 {
@@ -76,9 +80,9 @@ public:
     SVM&
     operator=(const SVM&);
 
-    SVM(SVM&&) = default;
+    SVM(SVM&&);
     SVM&
-    operator=(SVM&&) = default;
+    operator=(SVM&&);
 
     static SVM
     train(const Parameters& params,

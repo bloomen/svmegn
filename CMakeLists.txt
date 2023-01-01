@@ -23,7 +23,7 @@ function(svmegn_add_flags target)
     target_include_directories(${target} PRIVATE include)
     target_link_libraries(${target} svm)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /bigobj /EHsc /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068 /wd4722)
+        target_compile_options(${target} PRIVATE /W4 /bigobj /EHsc /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068)
         if(${MSVC_VERSION} GREATER_EQUAL 1929)
             if(svmegn_enable_asan)
                 target_compile_options(${target} PRIVATE /fsanitize=address)
@@ -32,10 +32,6 @@ function(svmegn_add_flags target)
         add_definitions(-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
     else()
         target_compile_options(${target} PRIVATE -Wall -Wconversion -Wextra -Wpedantic)
-        target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT})
-        if(CMAKE_COMPILER_IS_GNUCC)
-            target_compile_options(${target} PRIVATE -pthread)
-        endif()
         if(svmegn_enable_asan)
             target_compile_options(${target} PRIVATE -fsanitize=address,leak,undefined)
             set_target_properties(${target} PROPERTIES LINK_FLAGS "-fsanitize=address,leak,undefined")
@@ -47,8 +43,6 @@ function(svmegn_add_flags target)
     endif()
 endfunction()
 
-find_package(Threads)
-
 add_library(svmegn include/svmegn.h src/svmegn.cpp)
 svmegn_add_flags(svmegn)
 
@@ -59,20 +53,20 @@ if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    set(CATCH2LIB "Catch2")
+    set(svmegn_catch2lib "Catch2")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(CATCH2LIB "Catch2d")
+        set(svmegn_catch2lib "Catch2d")
     endif()
-    target_link_libraries(svmegn_test svmegn ${CATCH2LIB})
+    target_link_libraries(svmegn_test svmegn ${svmegn_catch2lib})
     add_test(svmegn_test svmegn_test)
 endif()
 
-file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp *.h *.hpp)
+file(GLOB_RECURSE svmegn_source_files *.cpp *.h *.hpp)
 
 add_custom_target(
     svmegn_format
     COMMAND clang-format
     -style=file
     -i
-    ${ALL_SOURCE_FILES}
+    ${svmegn_source_files}
 )

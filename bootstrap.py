@@ -25,13 +25,14 @@ def main():
     parser.add_argument('--build_type', type=str, required=False)
     args = parser.parse_args()
 
+    subprocess.check_call([
+        'pip3',
+        'install',
+        'conan',
+    ])
+
     types = [args.build_type] if args.build_type else ['Debug', 'Release']
     for build_type in types:
-        subprocess.check_call([
-            'pip3',
-            'install',
-            'conan',
-        ])
 
         subprocess.check_call([
             'conan',
