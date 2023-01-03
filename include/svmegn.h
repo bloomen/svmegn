@@ -44,8 +44,13 @@ enum class KernelType
     PRECOMPUTED = 4
 };
 
-struct Training
+struct Parameters
 {
+    SVMType svm_type = SVMType::C_SVC;
+    KernelType kernel_type = KernelType::RBF;
+    int degree = 3; // for poly
+    double gamma = 1.0; // for poly/rbf/sigmoid
+    double coef0 = 0.0; // for poly/sigmoid
     double cache_size = 200; // in MB
     double eps = 0.001; // stopping criteria
     double C = 1.0; // for C_SVC, EPSILON_SVR and NU_SVR
@@ -56,16 +61,6 @@ struct Training
     double p = 0.1; // for EPSILON_SVR
     bool shrinking = true; // use the shrinking heuristics
     bool probability = false; // do probability estimates
-};
-
-struct Parameters
-{
-    SVMType svm_type = SVMType::C_SVC;
-    KernelType kernel_type = KernelType::RBF;
-    int degree = 3; // for poly
-    double gamma = 1.0; // for poly/rbf/sigmoid
-    double coef0 = 0.0; // for poly/sigmoid
-    std::optional<Training> training{Training{}};
 };
 
 class SVMError : public std::runtime_error
@@ -91,9 +86,12 @@ public:
     operator=(SVM&&);
 
     static SVM
-    train(const Parameters& params,
+    train(Parameters params,
           const Eigen::MatrixXd& X,
           const Eigen::VectorXd& y);
+
+    const Parameters&
+    parameters() const;
 
     Eigen::VectorXd
     predict(const Eigen::MatrixXd& X) const;

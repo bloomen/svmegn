@@ -93,25 +93,20 @@ convert(const Parameters& ip)
     op.degree = ip.degree;
     op.gamma = ip.gamma;
     op.coef0 = ip.coef0;
-    if (ip.training)
+    op.cache_size = ip.cache_size;
+    op.eps = ip.eps;
+    op.C = ip.C;
+    op.nr_weight = ip.nr_weight;
+    op.nu = ip.nu;
+    op.p = ip.p;
+    op.shrinking = ip.shrinking ? 1 : 0;
+    op.probability = ip.probability ? 1 : 0;
+    if (op.nr_weight > 0)
     {
-        op.cache_size = ip.training->cache_size;
-        op.eps = ip.training->eps;
-        op.C = ip.training->C;
-        op.nr_weight = ip.training->nr_weight;
-        op.nu = ip.training->nu;
-        op.p = ip.training->p;
-        op.shrinking = ip.training->shrinking ? 1 : 0;
-        op.probability = ip.training->probability ? 1 : 0;
-
-        if (op.nr_weight > 0)
-        {
-            SVM_ASSERT(op.nr_weight == ip.training->weight_label.size());
-            SVM_ASSERT(op.nr_weight == ip.training->weight.size());
-            op.weight_label =
-                const_cast<int*>(ip.training->weight_label.data());
-            op.weight = const_cast<double*>(ip.training->weight.data());
-        }
+        SVM_ASSERT(op.nr_weight == ip.weight_label.size());
+        SVM_ASSERT(op.nr_weight == ip.weight.size());
+        op.weight_label = const_cast<int*>(ip.weight_label.data());
+        op.weight = const_cast<double*>(ip.weight.data());
     }
     return op;
 }
@@ -187,8 +182,9 @@ class Model
 {
 public:
     Model() = default;
-    explicit Model(svm_model* model)
+    explicit Model(svm_model* model, Parameters params)
         : m_model{model}
+        , m_params(std::move(params))
     {
     }
 
@@ -199,6 +195,7 @@ public:
 
     Model(const Model& other)
         : m_model{allocate<svm_model>(1, true)}
+        , m_params{other.m_params}
     {
         copy(*other.m_model, *m_model);
     }
@@ -211,12 +208,14 @@ public:
             destroy(m_model);
             m_model = allocate<svm_model>(1, true);
             copy(*other.m_model, *m_model);
+            m_params = other.m_params;
         }
         return *this;
     }
 
     Model(Model&& other)
         : m_model{other.m_model}
+        , m_params{std::move(other.m_params)}
     {
         other.m_model = nullptr;
     }
@@ -228,6 +227,7 @@ public:
         {
             m_model = other.m_model;
             other.m_model = nullptr;
+            m_params = std::move(other.m_params);
         }
         return *this;
     }
@@ -236,6 +236,12 @@ public:
     get() const
     {
         return *m_model;
+    }
+
+    const Parameters&
+    params() const
+    {
+        return m_params;
     }
 
 private:
@@ -343,6 +349,7 @@ private:
     }
 
     svm_model* m_model = nullptr;
+    Parameters m_params;
 };
 
 } // namespace
@@ -354,16 +361,14 @@ struct SVM::Impl
     {
     }
 
-    Impl(const Parameters& params,
-         const Eigen::MatrixXd& X,
-         const Eigen::MatrixXd& y)
+    Impl(Parameters params, const Eigen::MatrixXd& X, const Eigen::MatrixXd& y)
     {
         const auto svm_params = convert(params);
         Problem prob{X, y};
         std::unique_ptr<const char[]> error{
             svm_check_parameter(&prob.get(), &svm_params)};
         SVM_ASSERT(error == nullptr) << error.get();
-        m_model = Model{svm_train(&prob.get(), &svm_params)};
+        m_model = Model{svm_train(&prob.get(), &svm_params), std::move(params)};
         prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
     }
 
@@ -403,13 +408,19 @@ SVM&
 SVM::operator=(SVM&&) = default;
 
 SVM
-SVM::train(const Parameters& params,
+SVM::train(Parameters params,
            const Eigen::MatrixXd& X,
            const Eigen::VectorXd& y)
 {
     SVM svm;
-    svm.m_impl = std::make_unique<Impl>(params, X, y);
+    svm.m_impl = std::make_unique<Impl>(std::move(params), X, y);
     return svm;
+}
+
+const Parameters&
+SVM::parameters() const
+{
+    return m_impl->m_model.params();
 }
 
 Eigen::VectorXd
