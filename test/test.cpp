@@ -82,5 +82,6 @@ TEST_CASE("generic_combinations")
 int
 main(int argc, char** argv)
 {
+    svmegn::remove_print_string_function();
     return Catch::Session().run(argc, argv);
 }

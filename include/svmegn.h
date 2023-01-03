@@ -20,6 +20,12 @@
 namespace svmegn
 {
 
+void
+set_print_string_function(void (*)(const char*));
+
+void
+remove_print_string_function();
+
 enum class SVMType
 {
     C_SVC = 0,

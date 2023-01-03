@@ -17,6 +17,18 @@
 namespace svmegn
 {
 
+void
+set_print_string_function(void (*print_func)(const char*))
+{
+    svm_set_print_string_function(print_func);
+}
+
+void
+remove_print_string_function()
+{
+    set_print_string_function([](const char*) {});
+}
+
 namespace
 {
 
@@ -238,7 +250,7 @@ private:
         {
             for (int i = 0; i < model->l; ++i)
             {
-                free(model->SV[i]);
+                std::free(model->SV[i]);
             }
         }
         svm_free_and_destroy_model(&model);
