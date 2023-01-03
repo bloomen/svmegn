@@ -24,9 +24,14 @@ constexpr int prob_density_mark_count = 10;
 
 template <typename T, typename U>
 T*
-mllc(const U size)
+allocate(const U size, const bool zero = false)
 {
-    return (T*)malloc(static_cast<std::size_t>(size) * sizeof(T));
+    auto ptr = (T*)malloc(static_cast<std::size_t>(size) * sizeof(T));
+    if (zero)
+    {
+        std::memset(ptr, 0, sizeof(T));
+    }
+    return ptr;
 }
 
 class ErrorThrower
@@ -67,104 +72,6 @@ private:
     std::string m_msg;
 };
 
-void
-free_content(svm_model& model)
-{
-    if (model.SV)
-    {
-        for (int i = 0; i < model.l; ++i)
-        {
-            free(model.SV[i]);
-        }
-    }
-    svm_free_model_content(&model);
-}
-
-void
-copy_content(const svm_model& from, svm_model& to)
-{
-    to.param = from.param;
-    to.nr_class = from.nr_class;
-    to.l = from.l;
-
-    if (from.SV)
-    {
-        to.SV = mllc<svm_node*>(to.l);
-        for (int i = 0; i < to.l; ++i)
-        {
-            int j = 0;
-            while (from.SV[i][j++].index >= 0)
-                ;
-            to.SV[i] = mllc<svm_node>(j);
-            std::copy(from.SV[i], from.SV[i] + j, to.SV[i]);
-        }
-    }
-
-    if (from.sv_coef)
-    {
-        const auto size = to.nr_class - 1;
-        to.sv_coef = mllc<double*>(size);
-        for (int i = 0; i < size; ++i)
-        {
-            to.sv_coef[i] = mllc<double>(to.l);
-            std::copy(from.sv_coef[i], from.sv_coef[i] + to.l, to.sv_coef[i]);
-        }
-    }
-
-    if (from.rho)
-    {
-        const auto size = to.nr_class * (to.nr_class - 1) / 2;
-        to.rho = mllc<double>(size);
-        std::copy(from.rho, from.rho + size, to.rho);
-    }
-
-    if (from.probA)
-    {
-        const auto size = to.nr_class * (to.nr_class - 1) / 2;
-        to.probA = mllc<double>(size);
-        std::copy(from.probA, from.probA + size, to.probA);
-    }
-
-    if (from.probB)
-    {
-        const auto size = to.nr_class * (to.nr_class - 1) / 2;
-        to.probB = mllc<double>(size);
-        std::copy(from.probB, from.probB + size, to.probB);
-    }
-
-    if (from.prob_density_marks)
-    {
-        constexpr auto size = prob_density_mark_count;
-        to.prob_density_marks = mllc<double>(size);
-        std::copy(from.prob_density_marks,
-                  from.prob_density_marks + size,
-                  to.prob_density_marks);
-    }
-
-    if (from.sv_indices)
-    {
-        const auto size = to.l;
-        to.sv_indices = mllc<int>(size);
-        std::copy(from.sv_indices, from.sv_indices + size, to.sv_indices);
-    }
-
-    if (from.label)
-    {
-        const auto size = to.nr_class;
-        to.label = mllc<int>(size);
-        std::copy(from.label, from.label + size, to.label);
-    }
-
-    if (from.nSV)
-    {
-        const auto size = to.nr_class;
-        to.nSV = mllc<int>(size);
-        std::copy(from.nSV, from.nSV + size, to.nSV);
-    }
-
-    to.free_sv = from.free_sv;
-}
-
 svm_parameter
 convert(const Parameters& ip)
 {
@@ -197,98 +104,265 @@ convert(const Parameters& ip)
     return op;
 }
 
-struct ProblemDeleter
-{
-    void
-    operator()(svm_problem* prob) const
-    {
-        if (prob)
-        {
-            if (prob->x)
-            {
-                for (int i = 0; i < prob->l; ++i)
-                {
-                    if (sv_indices.find(i + 1) != sv_indices.end())
-                    {
-                        continue;
-                    }
-                    free(prob->x[i]);
-                }
-                delete[] prob->x;
-            }
-            delete prob;
-        }
-    }
-
-    std::unordered_set<int> sv_indices;
-};
-
-svm_node*
+std::unique_ptr<svm_node, decltype(std::free)*>
 make_record(const Eigen::RowVectorXd& row)
 {
-    auto record = mllc<svm_node>(row.cols() + 1);
+    auto record = allocate<svm_node>(row.cols() + 1);
     for (int j = 0; j < row.cols(); ++j)
     {
         record[j] = svm_node{j, row(j)};
     }
     record[row.cols()] = svm_node{-1, 0};
-    return record;
+    return std::unique_ptr<svm_node, decltype(std::free)*>{record, std::free};
 }
 
-// std::unique_ptr<svm_problem, ProblemDeleter>
-svm_problem*
-make_problem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
+class Problem
 {
-    SVM_ASSERT(X.rows() == y.rows());
-    //    std::unique_ptr<svm_problem, ProblemDeleter> prob{new svm_problem{},
-    //                                                      ProblemDeleter{}};
-    auto prob = new svm_problem{};
-    prob->l = static_cast<int>(X.rows());
-    prob->y = const_cast<double*>(y.data());
-    prob->x = new svm_node*[prob->l];
-    for (int i = 0; i < prob->l; ++i)
+public:
+    Problem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
     {
-        prob->x[i] = make_record(X.row(i));
-    }
-    return prob;
-}
-
-struct ModelDeleter
-{
-    void
-    operator()(svm_model* model) const
-    {
-        if (model)
+        m_prob->l = static_cast<int>(X.rows());
+        m_prob->y = const_cast<double*>(y.data());
+        m_prob->x = new svm_node*[m_prob->l];
+        for (int i = 0; i < m_prob->l; ++i)
         {
-            free_content(*model);
-            free(model);
+            m_prob->x[i] = make_record(X.row(i)).release();
         }
     }
+
+    ~Problem()
+    {
+        if (m_prob->x)
+        {
+            for (int i = 0; i < m_prob->l; ++i)
+            {
+                if (m_sv_indices.find(i + 1) != m_sv_indices.end())
+                {
+                    continue;
+                }
+                std::free(m_prob->x[i]);
+            }
+            delete[] m_prob->x;
+        }
+        delete m_prob;
+    }
+
+    Problem(const Problem&) = delete;
+    Problem&
+    operator=(const Problem&) = delete;
+    Problem(Problem&&) = delete;
+    Problem&
+    operator=(Problem&&) = delete;
+
+    svm_problem&
+    get() const
+    {
+        return *m_prob;
+    }
+
+    void
+    set_sv_indices(const int* idx, const int l)
+    {
+        m_sv_indices = std::unordered_set<int>{idx, idx + l};
+    }
+
+private:
+    std::unordered_set<int> m_sv_indices;
+    svm_problem* m_prob = new svm_problem;
+};
+
+class Model
+{
+public:
+    Model() = default;
+    explicit Model(svm_model* model)
+        : m_model{model}
+    {
+    }
+
+    ~Model()
+    {
+        destroy(m_model);
+    }
+
+    Model(const Model& other)
+        : m_model{allocate<svm_model>(1, true)}
+    {
+        copy(*other.m_model, *m_model);
+    }
+
+    Model&
+    operator=(const Model& other)
+    {
+        if (this != &other)
+        {
+            destroy(m_model);
+            m_model = allocate<svm_model>(1, true);
+            copy(*other.m_model, *m_model);
+        }
+        return *this;
+    }
+
+    Model(Model&& other)
+        : m_model{other.m_model}
+    {
+        other.m_model = nullptr;
+    }
+
+    Model&
+    operator=(Model&& other)
+    {
+        if (this != &other)
+        {
+            m_model = other.m_model;
+            other.m_model = nullptr;
+        }
+        return *this;
+    }
+
+    svm_model&
+    get() const
+    {
+        return *m_model;
+    }
+
+private:
+    static void
+    destroy(svm_model* model)
+    {
+        if (!model)
+        {
+            return;
+        }
+        if (model->SV)
+        {
+            for (int i = 0; i < model->l; ++i)
+            {
+                free(model->SV[i]);
+            }
+        }
+        svm_free_and_destroy_model(&model);
+    }
+
+    static void
+    copy(const svm_model& from, svm_model& to)
+    {
+        to.param = from.param;
+        to.nr_class = from.nr_class;
+        to.l = from.l;
+
+        if (from.SV)
+        {
+            to.SV = allocate<svm_node*>(to.l);
+            for (int i = 0; i < to.l; ++i)
+            {
+                int j = 0;
+                while (from.SV[i][j++].index >= 0)
+                    ;
+                to.SV[i] = allocate<svm_node>(j);
+                std::copy(from.SV[i], from.SV[i] + j, to.SV[i]);
+            }
+        }
+
+        if (from.sv_coef)
+        {
+            const auto size = to.nr_class - 1;
+            to.sv_coef = allocate<double*>(size);
+            for (int i = 0; i < size; ++i)
+            {
+                to.sv_coef[i] = allocate<double>(to.l);
+                std::copy(
+                    from.sv_coef[i], from.sv_coef[i] + to.l, to.sv_coef[i]);
+            }
+        }
+
+        if (from.rho)
+        {
+            const auto size = to.nr_class * (to.nr_class - 1) / 2;
+            to.rho = allocate<double>(size);
+            std::copy(from.rho, from.rho + size, to.rho);
+        }
+
+        if (from.probA)
+        {
+            const auto size = to.nr_class * (to.nr_class - 1) / 2;
+            to.probA = allocate<double>(size);
+            std::copy(from.probA, from.probA + size, to.probA);
+        }
+
+        if (from.probB)
+        {
+            const auto size = to.nr_class * (to.nr_class - 1) / 2;
+            to.probB = allocate<double>(size);
+            std::copy(from.probB, from.probB + size, to.probB);
+        }
+
+        if (from.prob_density_marks)
+        {
+            constexpr auto size = prob_density_mark_count;
+            to.prob_density_marks = allocate<double>(size);
+            std::copy(from.prob_density_marks,
+                      from.prob_density_marks + size,
+                      to.prob_density_marks);
+        }
+
+        if (from.sv_indices)
+        {
+            const auto size = to.l;
+            to.sv_indices = allocate<int>(size);
+            std::copy(from.sv_indices, from.sv_indices + size, to.sv_indices);
+        }
+
+        if (from.label)
+        {
+            const auto size = to.nr_class;
+            to.label = allocate<int>(size);
+            std::copy(from.label, from.label + size, to.label);
+        }
+
+        if (from.nSV)
+        {
+            const auto size = to.nr_class;
+            to.nSV = allocate<int>(size);
+            std::copy(from.nSV, from.nSV + size, to.nSV);
+        }
+
+        to.free_sv = from.free_sv;
+    }
+
+    svm_model* m_model = nullptr;
 };
 
 } // namespace
 
 struct SVM::Impl
 {
-    void
-    train(const Parameters& params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y)
+    Impl(const Impl& other)
+        : m_model{other.m_model}
     {
-        const auto svm_params = convert(params);
-        const auto prob = make_problem(X, y); // TODO make Problem class
-        std::unique_ptr<const char[]> error{
-            svm_check_parameter(prob, &svm_params)};
-        SVM_ASSERT(error == nullptr) << error.get();
-        const auto model = svm_train(prob, &svm_params);
-        m_model =
-            std::unique_ptr<svm_model, ModelDeleter>{model, ModelDeleter{}};
-        std::unordered_set<int> sv_indices{m_model->sv_indices,
-                                           m_model->sv_indices + m_model->l};
-        ProblemDeleter{sv_indices}(prob);
     }
 
-    std::unique_ptr<svm_model, ModelDeleter> m_model;
+    Impl(const Parameters& params,
+         const Eigen::MatrixXd& X,
+         const Eigen::MatrixXd& y)
+    {
+        const auto svm_params = convert(params);
+        Problem prob{X, y};
+        std::unique_ptr<const char[]> error{
+            svm_check_parameter(&prob.get(), &svm_params)};
+        SVM_ASSERT(error == nullptr) << error.get();
+        m_model = Model{svm_train(&prob.get(), &svm_params)};
+        prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
+    }
+
+    double
+    predict(const Eigen::RowVectorXd& row) const
+    {
+        auto record = make_record(row);
+        return svm_predict(&m_model.get(), record.get());
+    }
+
+    Model m_model;
 };
 
 SVM::~SVM()
@@ -306,11 +380,7 @@ SVM::operator=(const SVM& other)
     if (this != &other)
     {
         m_impl.reset();
-        m_impl = std::make_unique<Impl>();
-        m_impl->m_model = std::unique_ptr<svm_model, ModelDeleter>{
-            mllc<svm_model>(1), ModelDeleter{}};
-        *m_impl->m_model = svm_model{};
-        copy_content(*other.m_impl->m_model, *m_impl->m_model);
+        m_impl = std::make_unique<Impl>(*other.m_impl);
     }
     return *this;
 }
@@ -326,8 +396,7 @@ SVM::train(const Parameters& params,
            const Eigen::VectorXd& y)
 {
     SVM svm;
-    svm.m_impl = std::make_unique<Impl>();
-    svm.m_impl->train(params, X, y);
+    svm.m_impl = std::make_unique<Impl>(params, X, y);
     return svm;
 }
 
@@ -337,9 +406,7 @@ SVM::predict(const Eigen::MatrixXd& X) const
     Eigen::VectorXd y{X.rows()};
     for (int i = 0; i < X.rows(); ++i)
     {
-        auto record = make_record(X.row(i));
-        y(i) = svm_predict(m_impl->m_model.get(), record);
-        free(record);
+        y(i) = m_impl->predict(X.row(i));
     }
     return y;
 }
