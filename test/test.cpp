@@ -1,4 +1,5 @@
-#include <catch2/catch_all.hpp>
+#define CATCH_CONFIG_RUNNER
+#include <catch2/catch.hpp>
 #include <sstream>
 #include <svmegn.h>
 

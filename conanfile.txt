@@ -1,4 +1,4 @@
 [requires]
 libsvm/330
 eigen/3.4.0
-catch2/3.2.1
+catch2/2.13.9
