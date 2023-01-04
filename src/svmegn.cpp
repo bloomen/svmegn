@@ -239,7 +239,8 @@ public:
     Problem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
     {
         m_prob->l = static_cast<int>(X.rows());
-        m_prob->y = const_cast<double*>(y.data());
+        m_prob->y = allocate<double>(m_prob->l);
+        std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
         m_prob->x = new svm_node*[m_prob->l];
         for (int i = 0; i < m_prob->l; ++i)
         {
@@ -249,18 +250,16 @@ public:
 
     ~Problem()
     {
-        if (m_prob->x)
+        std::free(m_prob->y);
+        for (int i = 0; i < m_prob->l; ++i)
         {
-            for (int i = 0; i < m_prob->l; ++i)
+            if (m_sv_indices.find(i + 1) != m_sv_indices.end())
             {
-                if (m_sv_indices.find(i + 1) != m_sv_indices.end())
-                {
-                    continue;
-                }
-                std::free(m_prob->x[i]);
+                continue;
             }
-            delete[] m_prob->x;
+            std::free(m_prob->x[i]);
         }
+        delete[] m_prob->x;
         delete m_prob;
     }
 
