@@ -752,8 +752,8 @@ SVM::~SVM()
 }
 
 SVM::SVM(const SVM& other)
+    : m_impl{std::make_unique<Impl>(*other.m_impl)}
 {
-    *this = other;
 }
 
 SVM&
