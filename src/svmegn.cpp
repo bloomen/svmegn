@@ -307,7 +307,8 @@ public:
         : m_model{allocate<svm_model>(1, true)}
         , m_params{other.m_params}
     {
-        copy(*other.m_model, *m_model);
+        copy_model(*other.m_model, *m_model);
+        m_model->param = convert(m_params);
     }
 
     Model&
@@ -317,8 +318,9 @@ public:
         {
             destroy(m_model);
             m_model = allocate<svm_model>(1, true);
-            copy(*other.m_model, *m_model);
+            copy_model(*other.m_model, *m_model);
             m_params = other.m_params;
+            m_model->param = convert(m_params);
         }
         return *this;
     }
@@ -617,9 +619,9 @@ private:
     }
 
     static void
-    copy(const svm_model& from, svm_model& to)
+    copy_model(const svm_model& from, svm_model& to)
     {
-        to.param = from.param; // TODO make deep copy
+        // Note: param is copied separately
         to.nr_class = from.nr_class;
         to.l = from.l;
 
