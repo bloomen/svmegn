@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <unordered_set>
 
-#include <svm/svm.h>
+#include "svm.h"
 
 #include <svmegn.h>
 

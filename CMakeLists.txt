@@ -21,7 +21,6 @@ function(svmegn_add_flags target)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
     set_property(TARGET ${target} PROPERTY CXX_EXTENSIONS OFF)
     target_include_directories(${target} PRIVATE include)
-    target_link_libraries(${target} svm)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /bigobj /EHsc /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068)
         if(${MSVC_VERSION} GREATER_EQUAL 1929)
@@ -48,7 +47,7 @@ function(svmegn_add_flags target)
     endif()
 endfunction()
 
-add_library(svmegn include/svmegn.h src/svmegn.cpp)
+add_library(svmegn include/svmegn.h src/svmegn.cpp src/svm.h src/svm.cpp)
 svmegn_add_flags(svmegn)
 
 set_target_properties(svmegn PROPERTIES PUBLIC_HEADER include/svmegn.h)
@@ -62,12 +61,12 @@ if(svmegn_build_tests)
     add_test(svmegn_test svmegn_test)
 endif()
 
-file(GLOB_RECURSE svmegn_source_files *.cpp *.h *.hpp)
-
 add_custom_target(
     svmegn_format
     COMMAND clang-format
     -style=file
     -i
-    ${svmegn_source_files}
+    include/svmegn.h
+    src/svmegn.cpp
+    test/test.cpp
 )

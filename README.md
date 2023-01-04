@@ -8,6 +8,7 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 
 * Give access to the trained model
 * Add support for probas
+* Add support for cross-validation
 * Add Eigen sparse matrix support
 * Add more tests
 * Add support for liblinear
