@@ -47,7 +47,16 @@ function(svmegn_add_flags target)
     endif()
 endfunction()
 
-add_library(svmegn include/svmegn.h src/svmegn.cpp src/svm.h src/svm.cpp)
+add_library(svmegn
+    include/svmegn.h
+    src/svmegn.cpp
+    src/libsvm/svm.h
+    src/libsvm/svm.cpp
+    src/liblinear/linear.h
+    src/liblinear/linear.cpp
+    src/liblinear/newton.h
+    src/liblinear/newton.cpp
+)
 svmegn_add_flags(svmegn)
 
 set_target_properties(svmegn PROPERTIES PUBLIC_HEADER include/svmegn.h)
@@ -61,12 +70,15 @@ if(svmegn_build_tests)
     add_test(svmegn_test svmegn_test)
 endif()
 
+set(svmegn_source_files
+    ${PROJECT_SOURCE_DIR}/include/svmegn.h
+    ${PROJECT_SOURCE_DIR}/src/svmegn.cpp
+    ${PROJECT_SOURCE_DIR}/test/test.cpp)
+
 add_custom_target(
     svmegn_format
     COMMAND clang-format
     -style=file
     -i
-    include/svmegn.h
-    src/svmegn.cpp
-    test/test.cpp
+    ${svmegn_source_files}
 )

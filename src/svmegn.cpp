@@ -6,7 +6,8 @@
 #include <type_traits>
 #include <unordered_set>
 
-#include "svm.h"
+#include "liblinear/linear.h"
+#include "libsvm/svm.h"
 
 #include <svmegn.h>
 
@@ -21,7 +22,7 @@ namespace svmegn
 void
 set_print_string_function(void (*print_func)(const char*))
 {
-    svm_set_print_string_function(print_func);
+    libsvm::svm_set_print_string_function(print_func);
 }
 
 void
@@ -194,10 +195,10 @@ read_array(std::istream& is, T* data, const std::size_t size)
     is.read(reinterpret_cast<char*>(data), sizeof(T) * size);
 }
 
-svm_parameter
+libsvm::svm_parameter
 convert(const Parameters& ip)
 {
-    svm_parameter op;
+    libsvm::svm_parameter op;
     op.svm_type = static_cast<int>(ip.svm_type);
     op.kernel_type = static_cast<int>(ip.kernel_type);
     op.degree = ip.degree;
@@ -221,16 +222,17 @@ convert(const Parameters& ip)
     return op;
 }
 
-std::unique_ptr<svm_node, decltype(std::free)*>
+std::unique_ptr<libsvm::svm_node, decltype(std::free)*>
 make_record(const Eigen::RowVectorXd& row)
 {
-    auto record = allocate<svm_node>(row.cols() + 1);
+    auto record = allocate<libsvm::svm_node>(row.cols() + 1);
     for (int j = 0; j < row.cols(); ++j)
     {
-        record[j] = svm_node{j, row(j)};
+        record[j] = libsvm::svm_node{j, row(j)};
     }
-    record[row.cols()] = svm_node{-1, 0};
-    return std::unique_ptr<svm_node, decltype(std::free)*>{record, std::free};
+    record[row.cols()] = libsvm::svm_node{-1, 0};
+    return std::unique_ptr<libsvm::svm_node, decltype(std::free)*>{record,
+                                                                   std::free};
 }
 
 class Problem
@@ -241,7 +243,7 @@ public:
         m_prob->l = static_cast<int>(X.rows());
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
-        m_prob->x = allocate<svm_node*>(m_prob->l);
+        m_prob->x = allocate<libsvm::svm_node*>(m_prob->l);
         for (int i = 0; i < m_prob->l; ++i)
         {
             m_prob->x[i] = make_record(X.row(i)).release();
@@ -270,7 +272,7 @@ public:
     Problem&
     operator=(Problem&&) = delete;
 
-    svm_problem&
+    libsvm::svm_problem&
     get() const
     {
         return *m_prob;
@@ -284,14 +286,14 @@ public:
 
 private:
     std::unordered_set<int> m_sv_indices;
-    svm_problem* m_prob = allocate<svm_problem>(1);
+    libsvm::svm_problem* m_prob = allocate<libsvm::svm_problem>(1);
 };
 
 class Model
 {
 public:
     Model() = default;
-    explicit Model(svm_model* model, Parameters params)
+    explicit Model(libsvm::svm_model* model, Parameters params)
         : m_model{model}
         , m_params(std::move(params))
     {
@@ -303,7 +305,7 @@ public:
     }
 
     Model(const Model& other)
-        : m_model{allocate<svm_model>(1, true)}
+        : m_model{allocate<libsvm::svm_model>(1, true)}
         , m_params{other.m_params}
     {
         copy_model(*other.m_model, *m_model);
@@ -316,7 +318,7 @@ public:
         if (this != &other)
         {
             destroy(m_model);
-            m_model = allocate<svm_model>(1, true);
+            m_model = allocate<libsvm::svm_model>(1, true);
             copy_model(*other.m_model, *m_model);
             m_params = other.m_params;
             m_model->param = convert(m_params);
@@ -343,7 +345,7 @@ public:
         return *this;
     }
 
-    svm_model&
+    libsvm::svm_model&
     get() const
     {
         return *m_model;
@@ -497,7 +499,7 @@ public:
         if (have_model)
         {
             destroy(m_model);
-            m_model = allocate<svm_model>(1, true);
+            m_model = allocate<libsvm::svm_model>(1, true);
             m_model->param = convert(m_params);
             read(is, m_model->nr_class);
             read(is, m_model->l);
@@ -506,12 +508,12 @@ public:
             read(is, have_SV);
             if (have_SV)
             {
-                m_model->SV = allocate<svm_node*>(m_model->l);
+                m_model->SV = allocate<libsvm::svm_node*>(m_model->l);
                 for (int i = 0; i < m_model->l; ++i)
                 {
                     int j;
                     read(is, j);
-                    m_model->SV[i] = allocate<svm_node>(j);
+                    m_model->SV[i] = allocate<libsvm::svm_node>(j);
                     read_array(is, m_model->SV[i], j);
                 }
             }
@@ -601,7 +603,7 @@ public:
 
 private:
     static void
-    destroy(svm_model* model)
+    destroy(libsvm::svm_model* model)
     {
         if (!model)
         {
@@ -614,11 +616,11 @@ private:
                 std::free(model->SV[i]);
             }
         }
-        svm_free_and_destroy_model(&model);
+        libsvm::svm_free_and_destroy_model(&model);
     }
 
     static void
-    copy_model(const svm_model& from, svm_model& to)
+    copy_model(const libsvm::svm_model& from, libsvm::svm_model& to)
     {
         // Note: param is copied separately
         to.nr_class = from.nr_class;
@@ -626,13 +628,13 @@ private:
 
         if (from.SV)
         {
-            to.SV = allocate<svm_node*>(to.l);
+            to.SV = allocate<libsvm::svm_node*>(to.l);
             for (int i = 0; i < to.l; ++i)
             {
                 int j = 0;
                 while (from.SV[i][j++].index >= 0)
                     ;
-                to.SV[i] = allocate<svm_node>(j);
+                to.SV[i] = allocate<libsvm::svm_node>(j);
                 std::copy(from.SV[i], from.SV[i] + j, to.SV[i]);
             }
         }
@@ -703,7 +705,7 @@ private:
         to.free_sv = from.free_sv;
     }
 
-    svm_model* m_model = nullptr;
+    libsvm::svm_model* m_model = nullptr;
     Parameters m_params;
 };
 
@@ -720,7 +722,8 @@ struct SVM::Impl
     {
         const auto svm_params = convert(params);
         Problem prob{X, y};
-        const auto error = svm_check_parameter(&prob.get(), &svm_params);
+        const auto error =
+            libsvm::svm_check_parameter(&prob.get(), &svm_params);
         SVMEGN_ASSERT(error == nullptr) << error;
         m_model = Model{svm_train(&prob.get(), &svm_params), std::move(params)};
         prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
@@ -735,7 +738,7 @@ struct SVM::Impl
     predict(const Eigen::RowVectorXd& row) const
     {
         auto record = make_record(row);
-        return svm_predict(&m_model.get(), record.get());
+        return libsvm::svm_predict(&m_model.get(), record.get());
     }
 
     void

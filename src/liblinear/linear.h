@@ -3,9 +3,7 @@
 
 #define LIBLINEAR_VERSION 245
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace liblinear {
 
 extern int liblinear_version;
 
@@ -80,9 +78,6 @@ int check_regression_model(const struct model *model);
 int check_oneclass_model(const struct model *model);
 void set_print_string_function(void (*print_func) (const char*));
 
-#ifdef __cplusplus
 }
-#endif
 
 #endif /* _LIBLINEAR_H */
-

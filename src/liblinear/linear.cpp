@@ -6,6 +6,7 @@
 #include <locale.h>
 #include "linear.h"
 #include "newton.h"
+namespace liblinear {
 int liblinear_version = LIBLINEAR_VERSION;
 typedef signed char schar;
 template <class T> static inline void swap(T& x, T& y) { T t=x; x=y; y=t; }
@@ -28,7 +29,7 @@ static void print_string_stdout(const char *s)
 	fputs(s,stdout);
 	fflush(stdout);
 }
-static void print_null(const char *s) {}
+static void print_null(const char *) {}
 
 static void (*liblinear_print_string) (const char *) = &print_string_stdout;
 
@@ -3780,3 +3781,4 @@ void set_print_string_function(void (*print_func)(const char*))
 		liblinear_print_string = print_func;
 }
 
+}
