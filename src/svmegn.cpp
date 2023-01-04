@@ -1,4 +1,4 @@
-// svmegn is C++ wrapper library around libsvm using Eigen
+// svmegn is C++ wrapper library around libsvm/liblinear using Eigen
 // Repo: https://github.com/bloomen/svmegn
 // Author: Christian Blume
 // License: MIT http://www.opensource.org/licenses/mit-license.php
