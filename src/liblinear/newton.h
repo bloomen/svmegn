@@ -36,6 +36,8 @@ private:
 	void info(const char *fmt,...);
 	void (*newton_print_string)(const char *buf);
 };
-#endif
 
 }
+
+#endif
+
