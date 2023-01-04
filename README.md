@@ -9,3 +9,4 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 * Give access to the trained model
 * Add support for probas
 * Add Eigen sparse matrix support
+* Add more tests

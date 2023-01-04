@@ -57,7 +57,7 @@ if(svmegn_build_tests)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(svmegn_catch2lib "Catch2d")
     endif()
-    target_link_libraries(svmegn_test svmegn ${svmegn_catch2lib})
+    target_link_libraries(svmegn_test ${svmegn_catch2lib} svmegn)
     add_test(svmegn_test svmegn_test)
 endif()
 
