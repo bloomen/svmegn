@@ -24,6 +24,6 @@ jobs:
       - name: run tests
         run: |
           python3 bootstrap.py --build_type ${{ matrix.config }}
-          cmake -DCMAKE_BUILD_TYPE=${{ matrix.config }} -Dsvmegn_build_tests=ON -Dsvmegn_enable_asan=${{ matrix.asan }} -Dsvmegn_enable_tsan=${{ matrix.tsan }} .
+          cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=${{ matrix.config }} -Dsvmegn_build_tests=ON -Dsvmegn_enable_asan=${{ matrix.asan }} -Dsvmegn_enable_tsan=${{ matrix.tsan }} .
           cmake --build . -j 4 --config ${{ matrix.config }}
           ctest --verbose
