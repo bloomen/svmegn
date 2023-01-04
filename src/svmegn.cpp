@@ -38,10 +38,13 @@ constexpr int prob_density_mark_count = 10;
 
 template <typename T, typename U>
 T*
-allocate(const U size)
+allocate(const U size, const bool zero = false)
 {
     auto ptr = (T*)malloc(static_cast<std::size_t>(size) * sizeof(T));
-    std::memset(ptr, 0, sizeof(T));
+    if (zero)
+    {
+        std::memset(ptr, 0, sizeof(T));
+    }
     return ptr;
 }
 
@@ -301,7 +304,7 @@ public:
     }
 
     Model(const Model& other)
-        : m_model{allocate<svm_model>(1)}
+        : m_model{allocate<svm_model>(1, true)}
         , m_params{other.m_params}
     {
         copy_model(*other.m_model, *m_model);
@@ -314,7 +317,7 @@ public:
         if (this != &other)
         {
             destroy(m_model);
-            m_model = allocate<svm_model>(1);
+            m_model = allocate<svm_model>(1, true);
             copy_model(*other.m_model, *m_model);
             m_params = other.m_params;
             m_model->param = convert(m_params);
@@ -495,7 +498,7 @@ public:
         if (have_model)
         {
             destroy(m_model);
-            m_model = allocate<svm_model>(1);
+            m_model = allocate<svm_model>(1, true);
             m_model->param = convert(m_params);
             read(is, m_model->nr_class);
             read(is, m_model->l);
