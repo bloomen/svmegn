@@ -241,7 +241,7 @@ public:
         m_prob->l = static_cast<int>(X.rows());
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
-        m_prob->x = new svm_node*[m_prob->l];
+        m_prob->x = allocate<svm_node*>(m_prob->l);
         for (int i = 0; i < m_prob->l; ++i)
         {
             m_prob->x[i] = make_record(X.row(i)).release();
@@ -259,8 +259,8 @@ public:
             }
             std::free(m_prob->x[i]);
         }
-        delete[] m_prob->x;
-        delete m_prob;
+        std::free(m_prob->x);
+        std::free(m_prob);
     }
 
     Problem(const Problem&) = delete;
@@ -284,7 +284,7 @@ public:
 
 private:
     std::unordered_set<int> m_sv_indices;
-    svm_problem* m_prob = new svm_problem;
+    svm_problem* m_prob = allocate<svm_problem>(1);
 };
 
 class Model
@@ -720,9 +720,8 @@ struct SVM::Impl
     {
         const auto svm_params = convert(params);
         Problem prob{X, y};
-        std::unique_ptr<const char[]> error{
-            svm_check_parameter(&prob.get(), &svm_params)};
-        SVMEGN_ASSERT(error == nullptr) << error.get();
+        const auto error = svm_check_parameter(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
         m_model = Model{svm_train(&prob.get(), &svm_params), std::move(params)};
         prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
     }
