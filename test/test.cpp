@@ -57,12 +57,12 @@ generic_train_predict(const svmegn::SVMType svm_type,
     const auto p4 = svm4.predict(X);
     REQUIRE(p0 == p4);
     // test save & load
-    //    std::stringstream ss;
-    //    svm4.save(ss);
-    //    ss.seekg(0);
-    //    const auto svm5 = svmegn::SVM::load(ss);
-    //    const auto p5 = svm5.predict(X);
-    //    REQUIRE(p0 == p5);
+    std::stringstream ss;
+    svm4.save(ss);
+    ss.seekg(0);
+    const auto svm5 = svmegn::SVM::load(ss);
+    const auto p5 = svm5.predict(X);
+    REQUIRE(p0 == p5);
 }
 
 } // namespace

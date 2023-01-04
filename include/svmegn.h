@@ -100,7 +100,7 @@ public:
     save(std::ostream& os) const;
 
     static SVM
-    load(std::istream& os);
+    load(std::istream& is);
 
 private:
     SVM() = default;
