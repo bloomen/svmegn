@@ -31,6 +31,17 @@ def main():
         'conan',
     ])
 
+    try:
+        subprocess.check_call([
+            'conan',
+            'profile',
+            'new',
+            'default',
+            '--detect',
+        ], stderr=subprocess.PIPE)
+    except BaseException as e:
+        pass
+
     subprocess.check_call([
         'conan',
         'profile',
