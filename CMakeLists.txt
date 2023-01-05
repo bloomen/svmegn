@@ -23,6 +23,7 @@ function(svmegn_add_flags target)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
     set_property(TARGET ${target} PROPERTY CXX_EXTENSIONS OFF)
     target_include_directories(${target} PRIVATE include)
+    target_link_libraries(${target} PRIVATE svmegn_libsvm svmegn_liblinear)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /bigobj /EHsc /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068)
         if(${MSVC_VERSION} GREATER_EQUAL 1929)
@@ -33,7 +34,7 @@ function(svmegn_add_flags target)
         add_definitions(-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
     else()
         target_compile_options(${target} PRIVATE -Wall -Wconversion -Wextra -Wpedantic)
-        target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT})
+        target_link_libraries(${target} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
         if(CMAKE_COMPILER_IS_GNUCC)
             target_compile_options(${target} PRIVATE -pthread)
         endif()
@@ -55,25 +56,27 @@ endfunction()
 
 find_package(Threads)
 
-add_library(svmegn_blas
+add_library(svmegn_libsvm
+    src/libsvm/svm.h
+    src/libsvm/svm.cpp
+)
+
+add_library(svmegn_liblinear
     src/liblinear/blas/blas.h
     src/liblinear/blas/blasp.h
     src/liblinear/blas/daxpy.c
     src/liblinear/blas/ddot.c
     src/liblinear/blas/dnrm2.c
     src/liblinear/blas/dscal.c
-)
-svmegn_add_flags(svmegn_blas)
-
-add_library(svmegn
-    include/svmegn.h
-    src/svmegn.cpp
-    src/libsvm/svm.h
-    src/libsvm/svm.cpp
     src/liblinear/linear.h
     src/liblinear/linear.cpp
     src/liblinear/newton.h
     src/liblinear/newton.cpp
+)
+
+add_library(svmegn
+    include/svmegn.h
+    src/svmegn.cpp
 )
 svmegn_add_flags(svmegn)
 
@@ -84,7 +87,7 @@ if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    target_link_libraries(svmegn_test svmegn svmegn_blas gtest$<$<CONFIG:Debug>:d>)
+    target_link_libraries(svmegn_test PRIVATE svmegn gtest$<$<CONFIG:Debug>:d>)
     add_test(svmegn_test svmegn_test)
 endif()
 
