@@ -183,8 +183,58 @@ read_array(std::istream& is, T* data, const std::size_t size)
     is.read(reinterpret_cast<char*>(data), sizeof(T) * size);
 }
 
+void
+write_parameters(std::ostream& os, const Parameters& params)
+{
+    write(os, params.model_type);
+    write(os, params.svm_type);
+    write(os, params.linear_type);
+    write(os, params.kernel_type);
+    write(os, params.degree);
+    write(os, params.gamma);
+    write(os, params.coef0);
+    write(os, params.cache_size);
+    write(os, params.eps);
+    write(os, params.C);
+    write(os, params.nr_weight);
+    write(os, params.weight_label);
+    write(os, params.weight);
+    write(os, params.nu);
+    write(os, params.p);
+    write(os, params.shrinking);
+    write(os, params.probability);
+    write(os, params.init_sol);
+    write(os, params.regularize_bias);
+    write(os, params.bias);
+}
+
+void
+read_parameters(std::istream& is, Parameters& params)
+{
+    read(is, params.model_type);
+    read(is, params.svm_type);
+    read(is, params.linear_type);
+    read(is, params.kernel_type);
+    read(is, params.degree);
+    read(is, params.gamma);
+    read(is, params.coef0);
+    read(is, params.cache_size);
+    read(is, params.eps);
+    read(is, params.C);
+    read(is, params.nr_weight);
+    read(is, params.weight_label);
+    read(is, params.weight);
+    read(is, params.nu);
+    read(is, params.p);
+    read(is, params.shrinking);
+    read(is, params.probability);
+    read(is, params.init_sol);
+    read(is, params.regularize_bias);
+    read(is, params.bias);
+}
+
 libsvm::svm_parameter
-convert(const Parameters& ip)
+to_svm_params(const Parameters& ip)
 {
     libsvm::svm_parameter op;
     op.svm_type = static_cast<int>(ip.svm_type);
@@ -210,8 +260,30 @@ convert(const Parameters& ip)
     return op;
 }
 
+liblinear::parameter
+to_linear_params(const Parameters& ip)
+{
+    liblinear::parameter op;
+    op.solver_type = static_cast<int>(ip.linear_type);
+    op.eps = ip.eps;
+    op.C = ip.C;
+    op.nr_weight = ip.nr_weight;
+    op.p = ip.p;
+    op.nu = ip.nu;
+    if (op.nr_weight > 0)
+    {
+        SVMEGN_ASSERT(op.nr_weight == ip.weight_label.size());
+        SVMEGN_ASSERT(op.nr_weight == ip.weight.size());
+        op.weight_label = const_cast<int*>(ip.weight_label.data());
+        op.weight = const_cast<double*>(ip.weight.data());
+    }
+    op.init_sol = const_cast<double*>(ip.init_sol.data());
+    op.regularize_bias = ip.regularize_bias;
+    return op;
+}
+
 std::unique_ptr<libsvm::svm_node, decltype(std::free)*>
-make_record(const Eigen::RowVectorXd& row)
+make_svm_record(const Eigen::RowVectorXd& row)
 {
     auto record = allocate<libsvm::svm_node>(row.cols() + 1);
     for (int j = 0; j < row.cols(); ++j)
@@ -223,10 +295,23 @@ make_record(const Eigen::RowVectorXd& row)
                                                                    std::free};
 }
 
-class Problem
+std::unique_ptr<liblinear::feature_node, decltype(std::free)*>
+make_linear_record(const Eigen::RowVectorXd& row)
+{
+    auto record = allocate<liblinear::feature_node>(row.cols() + 1);
+    for (int j = 0; j < row.cols(); ++j)
+    {
+        record[j] = liblinear::feature_node{j, row(j)};
+    }
+    record[row.cols()] = liblinear::feature_node{-1, 0};
+    return std::unique_ptr<liblinear::feature_node, decltype(std::free)*>{
+        record, std::free};
+}
+
+class SvmProblem
 {
 public:
-    Problem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
+    SvmProblem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
     {
         m_prob->l = static_cast<int>(X.rows());
         m_prob->y = allocate<double>(m_prob->l);
@@ -234,11 +319,11 @@ public:
         m_prob->x = allocate<libsvm::svm_node*>(m_prob->l);
         for (int i = 0; i < m_prob->l; ++i)
         {
-            m_prob->x[i] = make_record(X.row(i)).release();
+            m_prob->x[i] = make_svm_record(X.row(i)).release();
         }
     }
 
-    ~Problem()
+    ~SvmProblem()
     {
         std::free(m_prob->y);
         for (int i = 0; i < m_prob->l; ++i)
@@ -253,12 +338,12 @@ public:
         std::free(m_prob);
     }
 
-    Problem(const Problem&) = delete;
-    Problem&
-    operator=(const Problem&) = delete;
-    Problem(Problem&&) = delete;
-    Problem&
-    operator=(Problem&&) = delete;
+    SvmProblem(const SvmProblem&) = delete;
+    SvmProblem&
+    operator=(const SvmProblem&) = delete;
+    SvmProblem(SvmProblem&&) = delete;
+    SvmProblem&
+    operator=(SvmProblem&&) = delete;
 
     libsvm::svm_problem&
     get() const
@@ -275,6 +360,64 @@ public:
 private:
     std::unordered_set<int> m_sv_indices;
     libsvm::svm_problem* m_prob = allocate<libsvm::svm_problem>(1);
+};
+
+class LinearProblem
+{
+public:
+    LinearProblem(const Eigen::MatrixXd& X,
+                  const Eigen::VectorXd& y,
+                  const double bias)
+    {
+        m_prob->l = static_cast<int>(X.rows());
+        m_prob->n = static_cast<int>(X.cols());
+        m_prob->y = allocate<double>(m_prob->l);
+        std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
+        m_prob->x = allocate<liblinear::feature_node*>(m_prob->l);
+        for (int i = 0; i < m_prob->l; ++i)
+        {
+            m_prob->x[i] = make_linear_record(X.row(i)).release();
+        }
+        m_prob->bias = bias;
+    }
+
+    ~LinearProblem()
+    {
+        std::free(m_prob->y);
+        for (int i = 0; i < m_prob->l; ++i)
+        {
+            if (m_sv_indices.find(i + 1) != m_sv_indices.end())
+            {
+                continue;
+            }
+            std::free(m_prob->x[i]);
+        }
+        std::free(m_prob->x);
+        std::free(m_prob);
+    }
+
+    LinearProblem(const LinearProblem&) = delete;
+    LinearProblem&
+    operator=(const LinearProblem&) = delete;
+    LinearProblem(LinearProblem&&) = delete;
+    LinearProblem&
+    operator=(LinearProblem&&) = delete;
+
+    liblinear::problem&
+    get() const
+    {
+        return *m_prob;
+    }
+
+    void
+    set_sv_indices(const int* idx, const int l)
+    {
+        m_sv_indices = std::unordered_set<int>{idx, idx + l};
+    }
+
+private:
+    std::unordered_set<int> m_sv_indices;
+    liblinear::problem* m_prob = allocate<liblinear::problem>(1);
 };
 
 class SvmModel
@@ -297,7 +440,7 @@ public:
         , m_params{other.m_params}
     {
         copy_model(*other.m_model, *m_model);
-        m_model->param = convert(m_params);
+        m_model->param = to_svm_params(m_params);
     }
 
     SvmModel&
@@ -309,7 +452,7 @@ public:
             m_model = allocate<libsvm::svm_model>(1, true);
             copy_model(*other.m_model, *m_model);
             m_params = other.m_params;
-            m_model->param = convert(m_params);
+            m_model->param = to_svm_params(m_params);
         }
         return *this;
     }
@@ -350,21 +493,7 @@ public:
     {
         SVMEGN_ASSERT(m_model != nullptr);
         write(os, serialize_version);
-        write(os, m_params.svm_type);
-        write(os, m_params.kernel_type);
-        write(os, m_params.degree);
-        write(os, m_params.gamma);
-        write(os, m_params.coef0);
-        write(os, m_params.cache_size);
-        write(os, m_params.eps);
-        write(os, m_params.C);
-        write(os, m_params.nr_weight);
-        write(os, m_params.weight_label);
-        write(os, m_params.weight);
-        write(os, m_params.nu);
-        write(os, m_params.p);
-        write(os, m_params.shrinking);
-        write(os, m_params.probability);
+        write_parameters(os, m_params);
 
         const bool have_model = m_model != nullptr;
         write(os, have_model);
@@ -467,28 +596,15 @@ public:
     {
         int version;
         read(is, version);
-        read(is, m_params.svm_type);
-        read(is, m_params.kernel_type);
-        read(is, m_params.degree);
-        read(is, m_params.gamma);
-        read(is, m_params.coef0);
-        read(is, m_params.cache_size);
-        read(is, m_params.eps);
-        read(is, m_params.C);
-        read(is, m_params.nr_weight);
-        read(is, m_params.weight_label);
-        read(is, m_params.weight);
-        read(is, m_params.nu);
-        read(is, m_params.p);
-        read(is, m_params.shrinking);
-        read(is, m_params.probability);
+        read_parameters(is, m_params);
+
         bool have_model;
         read(is, have_model);
         if (have_model)
         {
             destroy(m_model);
             m_model = allocate<libsvm::svm_model>(1, true);
-            m_model->param = convert(m_params);
+            m_model->param = to_svm_params(m_params);
             read(is, m_model->nr_class);
             read(is, m_model->l);
 
@@ -701,15 +817,44 @@ private:
 
 struct Model::Impl
 {
-    Impl(const Impl& other)
-        : m_model{other.m_model}
+    virtual ~Impl() = default;
+    virtual void
+    copy_from(const Impl& i) = 0;
+    virtual const Parameters&
+    params() const = 0;
+    virtual void
+    train(Parameters params,
+          const Eigen::MatrixXd& X,
+          const Eigen::MatrixXd& y) = 0;
+    virtual double
+    predict(const Eigen::RowVectorXd& row) const = 0;
+    virtual void
+    save(std::ostream& os) const = 0;
+    virtual void
+    load(std::istream& is) = 0;
+};
+
+struct Model::SvmImpl : public Model::Impl
+{
+    void
+    copy_from(const Model::Impl& i) override
     {
+        m_model = static_cast<const Model::SvmImpl&>(i).m_model;
     }
 
-    Impl(Parameters params, const Eigen::MatrixXd& X, const Eigen::MatrixXd& y)
+    const Parameters&
+    params() const override
     {
-        const auto svm_params = convert(params);
-        Problem prob{X, y};
+        return m_model.params();
+    }
+
+    void
+    train(Parameters params,
+          const Eigen::MatrixXd& X,
+          const Eigen::MatrixXd& y) override
+    {
+        const auto svm_params = to_svm_params(params);
+        SvmProblem prob{X, y};
         const auto error =
             libsvm::svm_check_parameter(&prob.get(), &svm_params);
         SVMEGN_ASSERT(error == nullptr) << error;
@@ -718,33 +863,66 @@ struct Model::Impl
         prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
     }
 
-    Impl(std::istream& is)
-    {
-        m_model.load(is);
-    }
-
     double
-    predict(const Eigen::RowVectorXd& row) const
+    predict(const Eigen::RowVectorXd& row) const override
     {
-        auto record = make_record(row);
+        auto record = make_svm_record(row);
         return libsvm::svm_predict(&m_model.get(), record.get());
     }
 
     void
-    save(std::ostream& os) const
+    save(std::ostream& os) const override
     {
         m_model.save(os);
     }
 
+    void
+    load(std::istream& is) override
+    {
+        m_model.load(is);
+    }
+
     SvmModel m_model;
 };
+
+std::unique_ptr<Model::Impl>
+Model::make_impl(const ModelType model_type)
+{
+    switch (model_type)
+    {
+    case ModelType::SVM:
+        return std::make_unique<Model::SvmImpl>();
+    }
+}
+
+std::unique_ptr<Model::Impl>
+Model::make_impl(std::istream& is)
+{
+    const auto pos = is.tellg();
+    int version;
+    read(is, version);
+    ModelType model_type;
+    read(is, model_type);
+    is.seekg(pos);
+    auto impl = make_impl(model_type);
+    impl->load(is);
+    return impl;
+}
+
+std::unique_ptr<Model::Impl>
+Model::make_impl(const Model::Impl& i)
+{
+    auto impl = make_impl(i.params().model_type);
+    impl->copy_from(i);
+    return impl;
+}
 
 Model::~Model()
 {
 }
 
 Model::Model(const Model& other)
-    : m_impl{std::make_unique<Impl>(*other.m_impl)}
+    : m_impl{make_impl(*other.m_impl)}
 {
 }
 
@@ -754,7 +932,7 @@ Model::operator=(const Model& other)
     if (this != &other)
     {
         m_impl.reset();
-        m_impl = std::make_unique<Impl>(*other.m_impl);
+        m_impl = make_impl(*other.m_impl);
     }
     return *this;
 }
@@ -770,14 +948,15 @@ Model::train(Parameters params,
              const Eigen::VectorXd& y)
 {
     Model model;
-    model.m_impl = std::make_unique<Impl>(std::move(params), X, y);
+    model.m_impl = make_impl(params.model_type);
+    model.m_impl->train(std::move(params), X, y);
     return model;
 }
 
 const Parameters&
 Model::parameters() const
 {
-    return m_impl->m_model.params();
+    return m_impl->params();
 }
 
 Eigen::VectorXd
@@ -801,7 +980,7 @@ Model
 Model::load(std::istream& is)
 {
     Model model;
-    model.m_impl = std::make_unique<Impl>(is);
+    model.m_impl = make_impl(is);
     return model;
 }
 

@@ -37,6 +37,22 @@ enum class SVMType
     NU_SVR = 4
 };
 
+enum class LinearType
+{
+    L2R_LR = 0,
+    L2R_L2LOSS_SVC_DUAL = 1,
+    L2R_L2LOSS_SVC = 2,
+    L2R_L1LOSS_SVC_DUAL = 3,
+    MCSVM_CS = 4,
+    L1R_L2LOSS_SVC = 5,
+    L1R_LR = 6,
+    L2R_LR_DUAL = 7,
+    L2R_L2LOSS_SVR = 11,
+    L2R_L2LOSS_SVR_DUAL = 12,
+    L2R_L1LOSS_SVR_DUAL = 13,
+    ONECLASS_SVM = 21
+};
+
 enum class KernelType
 {
     LINEAR = 0,
@@ -50,6 +66,7 @@ struct Parameters
 {
     ModelType model_type = ModelType::SVM;
     SVMType svm_type = SVMType::C_SVC;
+    LinearType linear_type = LinearType::L2R_L2LOSS_SVC_DUAL;
     KernelType kernel_type = KernelType::RBF;
     int degree = 3; // for poly
     double gamma = 1.0; // for poly/rbf/sigmoid
@@ -64,6 +81,9 @@ struct Parameters
     double p = 0.1; // for EPSILON_SVR
     bool shrinking = true; // use the shrinking heuristics
     bool probability = false; // do probability estimates
+    Eigen::VectorXd init_sol;
+    bool regularize_bias = true;
+    double bias = -1;
 };
 
 class ModelError : public std::runtime_error
@@ -109,6 +129,14 @@ private:
     Model() = default;
     struct Impl;
     std::unique_ptr<Impl> m_impl;
+    struct SvmImpl;
+    friend struct SvmImpl;
+    static std::unique_ptr<Impl>
+    make_impl(const ModelType);
+    static std::unique_ptr<Impl>
+    make_impl(std::istream&);
+    static std::unique_ptr<Impl>
+    make_impl(const Impl&);
 };
 
 class SVM : public Model
