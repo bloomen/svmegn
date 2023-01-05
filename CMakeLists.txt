@@ -18,6 +18,8 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/cmake/${CMAKE_BUILD_TYPE}.cmake")
 endif()
 
 function(svmegn_add_flags target)
+    set_property(TARGET ${target} PROPERTY C_STANDARD 11)
+    set_property(TARGET ${target} PROPERTY C_EXTENSIONS OFF)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
     set_property(TARGET ${target} PROPERTY CXX_EXTENSIONS OFF)
     target_include_directories(${target} PRIVATE include)
@@ -47,6 +49,16 @@ function(svmegn_add_flags target)
     endif()
 endfunction()
 
+add_library(svmegn_blas
+    src/liblinear/blas/blas.h
+    src/liblinear/blas/blasp.h
+    src/liblinear/blas/daxpy.c
+    src/liblinear/blas/ddot.c
+    src/liblinear/blas/dnrm2.c
+    src/liblinear/blas/dscal.c
+)
+svmegn_add_flags(svmegn_blas)
+
 add_library(svmegn
     include/svmegn.h
     src/svmegn.cpp
@@ -66,7 +78,7 @@ if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    target_link_libraries(svmegn_test svmegn)
+    target_link_libraries(svmegn_test svmegn svmegn_blas)
     add_test(svmegn_test svmegn_test)
 endif()
 

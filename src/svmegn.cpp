@@ -19,18 +19,6 @@
 namespace svmegn
 {
 
-void
-set_print_string_function(void (*print_func)(const char*))
-{
-    libsvm::svm_set_print_string_function(print_func);
-}
-
-void
-remove_print_string_function()
-{
-    set_print_string_function([](const char*) {});
-}
-
 namespace
 {
 
@@ -815,6 +803,30 @@ Model::load(std::istream& is)
     Model model;
     model.m_impl = std::make_unique<Impl>(is);
     return model;
+}
+
+void
+SVM::set_print_string_function(void (*print_func)(const char*))
+{
+    libsvm::svm_set_print_string_function(print_func);
+}
+
+void
+SVM::remove_print_string_function()
+{
+    SVM::set_print_string_function([](const char*) {});
+}
+
+void
+Linear::set_print_string_function(void (*print_func)(const char*))
+{
+    liblinear::set_print_string_function(print_func);
+}
+
+void
+Linear::remove_print_string_function()
+{
+    Linear::set_print_string_function([](const char*) {});
 }
 
 } // namespace svmegn

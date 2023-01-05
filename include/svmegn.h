@@ -22,12 +22,6 @@
 namespace svmegn
 {
 
-void
-set_print_string_function(void (*)(const char*));
-
-void
-remove_print_string_function();
-
 enum ModelType
 {
     SVM = 0,
@@ -120,13 +114,21 @@ private:
 class SVM : public Model
 {
 public:
-    // add extra functions here
+    static void
+    set_print_string_function(void (*)(const char*));
+
+    static void
+    remove_print_string_function();
 };
 
-// class Linear : public Model<ModelType::Linear>
-//{
-// public:
-//    // add extra functions here
-//};
+class Linear : public Model
+{
+public:
+    static void
+    set_print_string_function(void (*)(const char*));
+
+    static void
+    remove_print_string_function();
+};
 
 } // namespace svmegn
