@@ -49,10 +49,17 @@ public:
     ErrorThrower&
     operator=(ErrorThrower&&) = default;
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4722)
+#endif
     ~ErrorThrower() noexcept(false)
     {
         throw ModelError{m_msg};
     }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
     template <typename T>
     ErrorThrower&
