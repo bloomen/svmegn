@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import configparser
+import platform
 
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -42,13 +43,14 @@ def main():
     except BaseException as e:
         pass
 
-#    subprocess.check_call([
-#        'conan',
-#        'profile',
-#        'update',
-#        'settings.compiler.libcxx=libstdc++11',
-#        'default',
-#    ])
+    if platform.system() == 'Linux':
+        subprocess.check_call([
+            'conan',
+            'profile',
+            'update',
+            'settings.compiler.libcxx=libstdc++11',
+            'default',
+        ])
 
     types = [args.build_type] if args.build_type else ['Debug', 'Release']
     for build_type in types:
