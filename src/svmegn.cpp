@@ -63,7 +63,7 @@ public:
 
     ~ErrorThrower() noexcept(false)
     {
-        throw SVMError{m_msg};
+        throw ModelError{m_msg};
     }
 
     template <typename T>
@@ -289,22 +289,22 @@ private:
     libsvm::svm_problem* m_prob = allocate<libsvm::svm_problem>(1);
 };
 
-class Model
+class SvmModel
 {
 public:
-    Model() = default;
-    explicit Model(libsvm::svm_model* model, Parameters params)
+    SvmModel() = default;
+    explicit SvmModel(libsvm::svm_model* model, Parameters params)
         : m_model{model}
         , m_params(std::move(params))
     {
     }
 
-    ~Model()
+    ~SvmModel()
     {
         destroy(m_model);
     }
 
-    Model(const Model& other)
+    SvmModel(const SvmModel& other)
         : m_model{allocate<libsvm::svm_model>(1, true)}
         , m_params{other.m_params}
     {
@@ -312,8 +312,8 @@ public:
         m_model->param = convert(m_params);
     }
 
-    Model&
-    operator=(const Model& other)
+    SvmModel&
+    operator=(const SvmModel& other)
     {
         if (this != &other)
         {
@@ -326,15 +326,15 @@ public:
         return *this;
     }
 
-    Model(Model&& other)
+    SvmModel(SvmModel&& other)
         : m_model{other.m_model}
         , m_params{std::move(other.m_params)}
     {
         other.m_model = nullptr;
     }
 
-    Model&
-    operator=(Model&& other)
+    SvmModel&
+    operator=(SvmModel&& other)
     {
         if (this != &other)
         {
@@ -711,7 +711,7 @@ private:
 
 } // namespace
 
-struct SVM::Impl
+struct Model::Impl
 {
     Impl(const Impl& other)
         : m_model{other.m_model}
@@ -725,7 +725,8 @@ struct SVM::Impl
         const auto error =
             libsvm::svm_check_parameter(&prob.get(), &svm_params);
         SVMEGN_ASSERT(error == nullptr) << error;
-        m_model = Model{svm_train(&prob.get(), &svm_params), std::move(params)};
+        m_model =
+            SvmModel{svm_train(&prob.get(), &svm_params), std::move(params)};
         prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
     }
 
@@ -747,20 +748,20 @@ struct SVM::Impl
         m_model.save(os);
     }
 
-    Model m_model;
+    SvmModel m_model;
 };
 
-SVM::~SVM()
+Model::~Model()
 {
 }
 
-SVM::SVM(const SVM& other)
+Model::Model(const Model& other)
     : m_impl{std::make_unique<Impl>(*other.m_impl)}
 {
 }
 
-SVM&
-SVM::operator=(const SVM& other)
+Model&
+Model::operator=(const Model& other)
 {
     if (this != &other)
     {
@@ -770,29 +771,29 @@ SVM::operator=(const SVM& other)
     return *this;
 }
 
-SVM::SVM(SVM&&) = default;
+Model::Model(Model&&) = default;
 
-SVM&
-SVM::operator=(SVM&&) = default;
+Model&
+Model::operator=(Model&&) = default;
 
-SVM
-SVM::train(Parameters params,
-           const Eigen::MatrixXd& X,
-           const Eigen::VectorXd& y)
+Model
+Model::train(Parameters params,
+             const Eigen::MatrixXd& X,
+             const Eigen::VectorXd& y)
 {
-    SVM svm;
-    svm.m_impl = std::make_unique<Impl>(std::move(params), X, y);
-    return svm;
+    Model model;
+    model.m_impl = std::make_unique<Impl>(std::move(params), X, y);
+    return model;
 }
 
 const Parameters&
-SVM::parameters() const
+Model::parameters() const
 {
     return m_impl->m_model.params();
 }
 
 Eigen::VectorXd
-SVM::predict(const Eigen::MatrixXd& X) const
+Model::predict(const Eigen::MatrixXd& X) const
 {
     Eigen::VectorXd y{X.rows()};
     for (int i = 0; i < X.rows(); ++i)
@@ -803,17 +804,17 @@ SVM::predict(const Eigen::MatrixXd& X) const
 }
 
 void
-SVM::save(std::ostream& os) const
+Model::save(std::ostream& os) const
 {
     m_impl->save(os);
 }
 
-SVM
-SVM::load(std::istream& is)
+Model
+Model::load(std::istream& is)
 {
-    SVM svm;
-    svm.m_impl = std::make_unique<Impl>(is);
-    return svm;
+    Model model;
+    model.m_impl = std::make_unique<Impl>(is);
+    return model;
 }
 
 } // namespace svmegn

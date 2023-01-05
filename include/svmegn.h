@@ -17,6 +17,8 @@
 #pragma GCC diagnostic pop
 #endif
 
+// TODO Use fixed size types only
+
 namespace svmegn
 {
 
@@ -25,6 +27,12 @@ set_print_string_function(void (*)(const char*));
 
 void
 remove_print_string_function();
+
+enum ModelType
+{
+    SVM = 0,
+    LINEAR = 1
+};
 
 enum class SVMType
 {
@@ -46,6 +54,7 @@ enum class KernelType
 
 struct Parameters
 {
+    ModelType model_type = ModelType::SVM;
     SVMType svm_type = SVMType::C_SVC;
     KernelType kernel_type = KernelType::RBF;
     int degree = 3; // for poly
@@ -63,29 +72,29 @@ struct Parameters
     bool probability = false; // do probability estimates
 };
 
-class SVMError : public std::runtime_error
+class ModelError : public std::runtime_error
 {
 public:
-    explicit SVMError(const std::string& message)
+    explicit ModelError(const std::string& message)
         : std::runtime_error{message}
     {
     }
 };
 
-class SVM
+class Model
 {
 public:
-    ~SVM();
+    ~Model();
 
-    SVM(const SVM&);
-    SVM&
-    operator=(const SVM&);
+    Model(const Model&);
+    Model&
+    operator=(const Model&);
 
-    SVM(SVM&&);
-    SVM&
-    operator=(SVM&&);
+    Model(Model&&);
+    Model&
+    operator=(Model&&);
 
-    static SVM
+    static Model
     train(Parameters params,
           const Eigen::MatrixXd& X,
           const Eigen::VectorXd& y);
@@ -99,13 +108,25 @@ public:
     void
     save(std::ostream& os) const;
 
-    static SVM
+    static Model
     load(std::istream& is);
 
 private:
-    SVM() = default;
+    Model() = default;
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 };
+
+class SVM : public Model
+{
+public:
+    // add extra functions here
+};
+
+// class Linear : public Model<ModelType::Linear>
+//{
+// public:
+//    // add extra functions here
+//};
 
 } // namespace svmegn

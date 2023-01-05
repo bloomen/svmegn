@@ -36,24 +36,24 @@ generic_train_predict(const svmegn::SVMType svm_type,
                        .finished();
     const auto y =
         (Eigen::VectorXd{10} << 0, 1, 0, 1, 0, 1, 0, 1, 0, 1).finished();
-    auto svm0 = svmegn::SVM::train(params, X, y);
+    auto svm0 = svmegn::Model::train(params, X, y);
     const auto p0 = svm0.predict(X);
     REQUIRE(X.rows() == p0.rows());
     // test copy constructor
-    const svmegn::SVM svm1{svm0};
+    const svmegn::Model svm1{svm0};
     const auto p1 = svm1.predict(X);
     REQUIRE(p0 == p1);
     // test copy assignment
-    svmegn::SVM svm2{svm0};
+    svmegn::Model svm2{svm0};
     svm2 = svm1;
     const auto p2 = svm2.predict(X);
     REQUIRE(p0 == p2);
     // test move constructor
-    const svmegn::SVM svm3{std::move(svm0)};
+    const svmegn::Model svm3{std::move(svm0)};
     const auto p3 = svm3.predict(X);
     REQUIRE(p0 == p3);
     // test move assignment
-    svmegn::SVM svm4{svm1};
+    svmegn::Model svm4{svm1};
     svm4 = std::move(svm2);
     const auto p4 = svm4.predict(X);
     REQUIRE(p0 == p4);
@@ -61,7 +61,7 @@ generic_train_predict(const svmegn::SVMType svm_type,
     std::stringstream ss;
     svm4.save(ss);
     ss.seekg(0);
-    const auto svm5 = svmegn::SVM::load(ss);
+    const auto svm5 = svmegn::Model::load(ss);
     const auto p5 = svm5.predict(X);
     REQUIRE(p0 == p5);
 }
