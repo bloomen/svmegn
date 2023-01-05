@@ -17,23 +17,28 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/cmake/${CMAKE_BUILD_TYPE}.cmake")
     include("${PROJECT_SOURCE_DIR}/cmake/${CMAKE_BUILD_TYPE}.cmake")
 endif()
 
-function(svmegn_add_flags target)
+function(svmegn_add_flags target warnings)
     set_property(TARGET ${target} PROPERTY C_STANDARD 11)
     set_property(TARGET ${target} PROPERTY C_EXTENSIONS OFF)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
     set_property(TARGET ${target} PROPERTY CXX_EXTENSIONS OFF)
     target_include_directories(${target} PRIVATE include)
-    target_link_libraries(${target} PRIVATE svmegn_libsvm svmegn_liblinear)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /bigobj /EHsc /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068)
+        target_compile_options(${target} PRIVATE /bigobj /EHsc)
+        if(warnings)
+            target_compile_options(${target} PRIVATE /W4 /wd4503 /wd4996 /wd4702 /wd4100 /wd4706 /wd4068 /wd4127)
+        endif()
         if(${MSVC_VERSION} GREATER_EQUAL 1929)
             if(svmegn_enable_asan)
                 target_compile_options(${target} PRIVATE /fsanitize=address)
             endif()
         endif()
+        add_definitions(-D_CRT_SECURE_NO_WARNINGS)
         add_definitions(-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wconversion -Wextra -Wpedantic)
+        if(warnings)
+            target_compile_options(${target} PRIVATE -Wall -Wconversion -Wextra -Wpedantic)
+        endif()
         target_link_libraries(${target} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
         if(CMAKE_COMPILER_IS_GNUCC)
             target_compile_options(${target} PRIVATE -pthread)
@@ -60,6 +65,7 @@ add_library(svmegn_libsvm
     src/libsvm/svm.h
     src/libsvm/svm.cpp
 )
+svmegn_add_flags(svmegn_libsvm OFF)
 
 add_library(svmegn_liblinear
     src/liblinear/blas/blas.h
@@ -73,12 +79,14 @@ add_library(svmegn_liblinear
     src/liblinear/newton.h
     src/liblinear/newton.cpp
 )
+svmegn_add_flags(svmegn_liblinear OFF)
 
 add_library(svmegn
     include/svmegn.h
     src/svmegn.cpp
 )
-svmegn_add_flags(svmegn)
+svmegn_add_flags(svmegn ON)
+target_link_libraries(svmegn PRIVATE svmegn_libsvm svmegn_liblinear)
 
 set_target_properties(svmegn PROPERTIES PUBLIC_HEADER include/svmegn.h)
 install(TARGETS svmegn ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include)
@@ -86,7 +94,7 @@ install(TARGETS svmegn ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HE
 if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
-    svmegn_add_flags(svmegn_test)
+    svmegn_add_flags(svmegn_test ON)
     target_link_libraries(svmegn_test PRIVATE svmegn gtest$<$<CONFIG:Debug>:d>)
     add_test(svmegn_test svmegn_test)
 endif()
