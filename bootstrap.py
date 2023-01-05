@@ -42,13 +42,13 @@ def main():
     except BaseException as e:
         pass
 
-    subprocess.check_call([
-        'conan',
-        'profile',
-        'update',
-        'settings.compiler.libcxx=libstdc++11',
-        'default',
-    ])
+#    subprocess.check_call([
+#        'conan',
+#        'profile',
+#        'update',
+#        'settings.compiler.libcxx=libstdc++11',
+#        'default',
+#    ])
 
     types = [args.build_type] if args.build_type else ['Debug', 'Release']
     for build_type in types:
