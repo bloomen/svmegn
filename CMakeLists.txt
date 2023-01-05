@@ -33,6 +33,10 @@ function(svmegn_add_flags target)
         add_definitions(-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
     else()
         target_compile_options(${target} PRIVATE -Wall -Wconversion -Wextra -Wpedantic)
+        target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT})
+        if(CMAKE_COMPILER_IS_GNUCC)
+            target_compile_options(${target} PRIVATE -pthread)
+        endif()
         if(svmegn_enable_asan)
             if(APPLE)
                 target_compile_options(${target} PRIVATE -fsanitize=address,undefined)
@@ -48,6 +52,8 @@ function(svmegn_add_flags target)
         endif()
     endif()
 endfunction()
+
+find_package(Threads)
 
 add_library(svmegn_blas
     src/liblinear/blas/blas.h
@@ -78,7 +84,7 @@ if(svmegn_build_tests)
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test)
-    target_link_libraries(svmegn_test svmegn svmegn_blas)
+    target_link_libraries(svmegn_test svmegn svmegn_blas gtest$<$<CONFIG:Debug>:d>)
     add_test(svmegn_test svmegn_test)
 endif()
 
