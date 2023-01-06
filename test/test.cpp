@@ -16,7 +16,27 @@ namespace
 void
 generic_train_predict(const svmegn::Params& params)
 {
-    const auto X = (Eigen::MatrixXd{10, 2} << 1,
+    const auto X = (Eigen::MatrixXd{20, 2} << 1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
                     1,
                     0,
                     0,
@@ -37,8 +57,27 @@ generic_train_predict(const svmegn::Params& params)
                     0,
                     0)
                        .finished();
-    const auto y =
-        (Eigen::VectorXd{10} << 0, 1, 0, 1, 0, 1, 0, 1, 0, 1).finished();
+    const auto y = (Eigen::VectorXd{20} << -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1)
+                       .finished();
     auto svm0 = svmegn::Model::train(params, X, y);
     const auto p0 = svm0.predict(X);
     ASSERT_EQ(X.rows(), p0.rows());
@@ -81,13 +120,33 @@ TEST(svmegn, svm_generic_combinations)
             {
                 for (int prob = 0; prob < 2; ++prob)
                 {
-                    svmegn::Params params;
-                    params.model_type = svmegn::ModelType::SVM;
-                    params.svm_type = static_cast<svmegn::SVMType>(svm);
-                    params.kernel_type = static_cast<svmegn::KernelType>(kern);
-                    params.shrinking = static_cast<bool>(shrink);
-                    params.probability = static_cast<bool>(prob);
-                    generic_train_predict(params);
+                    for (int ww = 0; ww < 2; ++ww)
+                    {
+                        svmegn::Params params;
+                        if (prob == 1)
+                        {
+                            // Need to adjust params to avoid this error:
+                            // "WARNING: number of positive or negative decision
+                            // values <5; too few to do a probability
+                            // estimation."
+                            params.nu = 1e-6;
+                            params.coef0 = 0.5;
+                        }
+                        params.model_type = svmegn::ModelType::SVM;
+                        params.svm_type = static_cast<svmegn::SVMType>(svm);
+                        params.kernel_type =
+                            static_cast<svmegn::KernelType>(kern);
+                        params.shrinking = static_cast<bool>(shrink);
+                        params.probability = static_cast<bool>(prob);
+                        if (ww == 1)
+                        {
+                            params.weight_label =
+                                (Eigen::VectorXi{2} << -1, 1).finished();
+                            params.weight =
+                                (Eigen::VectorXd{2} << 0.4, 0.6).finished();
+                        }
+                        generic_train_predict(params);
+                    }
                 }
             }
         }
@@ -103,20 +162,34 @@ TEST(svmegn, linear_generic_combinations)
         {
             continue;
         }
-        if (lin == 4)
-        {
-            // TODO figure out why this solver crashes
-            continue;
-        }
         for (int regb = 0; regb < 2; ++regb)
         {
             for (int bias = -1; bias < 2; ++bias)
             {
-                svmegn::Params params;
-                params.linear_type = static_cast<svmegn::LinearType>(lin);
-                params.regularize_bias = static_cast<bool>(regb);
-                params.bias = bias;
-                generic_train_predict(params);
+                for (int ww = 0; ww < 2; ++ww)
+                {
+                    for (int init = 0; init < 2; ++init)
+                    {
+                        svmegn::Params params;
+                        params.linear_type =
+                            static_cast<svmegn::LinearType>(lin);
+                        params.regularize_bias = static_cast<bool>(regb);
+                        params.bias = bias;
+                        if (ww == 1)
+                        {
+                            params.weight_label =
+                                (Eigen::VectorXi{2} << -1, 1).finished();
+                            params.weight =
+                                (Eigen::VectorXd{2} << 0.4, 0.6).finished();
+                        }
+                        if (init == 1)
+                        {
+                            params.init_sol =
+                                (Eigen::VectorXd{2} << 0.1, 0.9).finished();
+                        }
+                        generic_train_predict(params);
+                    }
+                }
             }
         }
     }
