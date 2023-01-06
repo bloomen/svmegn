@@ -295,7 +295,7 @@ make_svm_record(const Eigen::RowVectorXd& row)
     auto record = allocate<libsvm::svm_node>(row.cols() + 1);
     for (int j = 0; j < row.cols(); ++j)
     {
-        record[j] = libsvm::svm_node{j, row(j)};
+        record[j] = libsvm::svm_node{j + 1, row(j)};
     }
     record[row.cols()] = libsvm::svm_node{-1, 0};
     return std::unique_ptr<libsvm::svm_node, decltype(std::free)*>{record,
@@ -308,7 +308,7 @@ make_linear_record(const Eigen::RowVectorXd& row)
     auto record = allocate<liblinear::feature_node>(row.cols() + 1);
     for (int j = 0; j < row.cols(); ++j)
     {
-        record[j] = liblinear::feature_node{j, row(j)};
+        record[j] = liblinear::feature_node{j + 1, row(j)};
     }
     record[row.cols()] = liblinear::feature_node{-1, 0};
     return std::unique_ptr<liblinear::feature_node, decltype(std::free)*>{
@@ -492,8 +492,8 @@ struct Model::SvmImpl : public Model::Impl
         const auto error =
             libsvm::svm_check_parameter(&prob.get(), &svm_params);
         SVMEGN_ASSERT(error == nullptr) << error;
-        m_model = svm_train(&prob.get(), &svm_params);
-        SVMEGN_ASSERT(m_model != nullptr) << "svm_train() failed";
+        m_model = libsvm::svm_train(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(m_model != nullptr) << "libsvm::svm_train() failed";
         prob.set_sv_indices(m_model->sv_indices, m_model->l);
     }
 
@@ -736,6 +736,7 @@ private:
             }
         }
         libsvm::svm_free_and_destroy_model(&model);
+        model = nullptr;
     }
 
     static void
@@ -828,6 +829,164 @@ private:
     Parameters m_params;
 };
 
+struct Model::LinearImpl : public Model::Impl
+{
+    ~LinearImpl()
+    {
+        destroy_model(m_model);
+    }
+
+    void
+    copy_from(const Model::Impl& i) override
+    {
+        const auto& svmi = static_cast<const Model::LinearImpl&>(i);
+        destroy_model(m_model);
+        m_model = allocate<liblinear::model>(1, true);
+        copy_model(*svmi.m_model, *m_model);
+        m_params = svmi.m_params;
+        m_model->param = to_linear_params(m_params);
+    }
+
+    const Parameters&
+    params() const override
+    {
+        return m_params;
+    }
+
+    void
+    train(Parameters params,
+          const Eigen::MatrixXd& X,
+          const Eigen::MatrixXd& y) override
+    {
+        m_params = std::move(params);
+        const auto linear_params = to_linear_params(m_params);
+        LinearProblem prob{X, y, m_params.bias};
+        const auto error =
+            liblinear::check_parameter(&prob.get(), &linear_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        m_model = liblinear::train(&prob.get(), &linear_params);
+        SVMEGN_ASSERT(m_model != nullptr) << "liblinear::train() failed";
+        //        prob.set_sv_indices(m_model->sv_indices, m_model->l);
+    }
+
+    double
+    predict(const Eigen::RowVectorXd& row) const override
+    {
+        auto record = make_linear_record(row);
+        return liblinear::predict(m_model, record.get());
+    }
+
+    void
+    save(std::ostream& os) const override
+    {
+        SVMEGN_ASSERT(m_model != nullptr);
+        write(os, serialize_version);
+        write_parameters(os, m_params);
+
+        const bool have_model = m_model != nullptr;
+        write(os, have_model);
+        if (have_model)
+        {
+            write(os, m_model->nr_class);
+            write(os, m_model->nr_feature);
+
+            const bool have_w = m_model->w != nullptr;
+            write(os, have_w);
+            if (have_w)
+            {
+                write_array(os, m_model->w, m_model->nr_feature);
+            }
+
+            const bool have_label = m_model->label != nullptr;
+            write(os, have_label);
+            if (have_label)
+            {
+                write_array(os, m_model->label, m_model->nr_class);
+            }
+
+            write(os, m_model->bias);
+            write(os, m_model->rho);
+        }
+    }
+
+    void
+    load(std::istream& is, const int version) override
+    {
+        (void)version;
+        read_parameters(is, m_params);
+
+        bool have_model;
+        read(is, have_model);
+        if (have_model)
+        {
+            destroy_model(m_model);
+            m_model = allocate<liblinear::model>(1, true);
+            m_model->param = to_linear_params(m_params);
+            read(is, m_model->nr_class);
+            read(is, m_model->nr_feature);
+
+            bool have_w;
+            read(is, have_w);
+            if (have_w)
+            {
+                const auto size = m_model->nr_feature;
+                m_model->w = allocate<double>(size);
+                read_array(is, m_model->w, size);
+            }
+
+            bool have_label;
+            read(is, have_label);
+            if (have_label)
+            {
+                const auto size = m_model->nr_class;
+                m_model->label = allocate<int>(size);
+                read_array(is, m_model->label, size);
+            }
+
+            read(is, m_model->bias);
+            read(is, m_model->rho);
+        }
+    }
+
+private:
+    static void
+    destroy_model(liblinear::model*& model)
+    {
+        if (!model)
+        {
+            return;
+        }
+        liblinear::free_and_destroy_model(&model);
+        model = nullptr;
+    }
+
+    static void
+    copy_model(const liblinear::model& from, liblinear::model& to)
+    {
+        // Note: param is copied separately
+        to.nr_class = from.nr_class;
+        to.nr_feature = from.nr_feature;
+
+        if (from.w)
+        {
+            to.w = allocate<double>(to.nr_feature);
+            std::copy(from.w, from.w + from.nr_feature, to.w);
+        }
+
+        if (from.label)
+        {
+            to.label = allocate<int>(to.nr_class);
+            std::copy(from.label, from.label + from.nr_class, to.label);
+        }
+
+        to.bias = from.bias;
+        to.rho = from.rho;
+    }
+
+    liblinear::model* m_model = nullptr;
+    Parameters m_params;
+};
+
 std::unique_ptr<Model::Impl>
 Model::make_impl(const ModelType model_type)
 {
@@ -836,8 +995,7 @@ Model::make_impl(const ModelType model_type)
     case ModelType::SVM:
         return std::make_unique<Model::SvmImpl>();
     case ModelType::LINEAR:
-        //        return std::make_unique<Model::LinearImpl>();
-        return nullptr;
+        return std::make_unique<Model::LinearImpl>();
     }
     SVMEGN_ASSERT(false) << "No such model type: " << model_type;
     return nullptr;

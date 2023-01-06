@@ -133,6 +133,8 @@ private:
     std::unique_ptr<Impl> m_impl;
     struct SvmImpl;
     friend struct SvmImpl;
+    struct LinearImpl;
+    friend struct LinearImpl;
     static std::unique_ptr<Impl>
     make_impl(const ModelType);
 };

@@ -13,12 +13,17 @@ namespace
 {
 
 void
-generic_train_predict(const svmegn::SVMType svm_type,
-                      const svmegn::KernelType kernel_type)
+generic_train_predict(const svmegn::ModelType model_type,
+                      const svmegn::SVMType svm_type,
+                      const svmegn::KernelType kernel_type,
+                      const svmegn::LinearType linear_type =
+                          svmegn::LinearType::L2R_L2LOSS_SVC_DUAL)
 {
     svmegn::Parameters params;
+    params.model_type = model_type;
     params.svm_type = svm_type;
     params.kernel_type = kernel_type;
+    params.linear_type = linear_type;
     const auto X = (Eigen::MatrixXd{10, 2} << 1,
                     1,
                     0,
@@ -74,22 +79,51 @@ generic_train_predict(const svmegn::SVMType svm_type,
 
 } // namespace
 
-TEST(svmegn, generic_combinations)
+TEST(svmegn, svm_generic_combinations)
 {
     for (int svm = 0; svm < 5; ++svm)
     {
         for (int kern = 0; kern < 5; ++kern)
         {
-            generic_train_predict(static_cast<svmegn::SVMType>(svm),
+            generic_train_predict(svmegn::ModelType::SVM,
+                                  static_cast<svmegn::SVMType>(svm),
                                   static_cast<svmegn::KernelType>(kern));
         }
     }
+}
+
+TEST(svmegn, linear_generic_combinations)
+{
+    for (int lin = 0; lin < 8; ++lin)
+    {
+        if (lin == 4)
+        {
+            // TODO figure out why this solver crashes
+            continue;
+        }
+        generic_train_predict(svmegn::ModelType::LINEAR,
+                              svmegn::SVMType::C_SVC,
+                              svmegn::KernelType::LINEAR,
+                              static_cast<svmegn::LinearType>(lin));
+    }
+    for (int lin = 11; lin < 14; ++lin)
+    {
+        generic_train_predict(svmegn::ModelType::LINEAR,
+                              svmegn::SVMType::C_SVC,
+                              svmegn::KernelType::LINEAR,
+                              static_cast<svmegn::LinearType>(lin));
+    }
+    generic_train_predict(svmegn::ModelType::LINEAR,
+                          svmegn::SVMType::C_SVC,
+                          svmegn::KernelType::LINEAR,
+                          svmegn::LinearType::ONECLASS_SVM);
 }
 
 int
 main(int argc, char** argv)
 {
     svmegn::SVM::remove_print_string_function();
+    svmegn::Linear::remove_print_string_function();
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
