@@ -8,22 +8,14 @@
 #endif
 #include <sstream>
 #include <svmegn.h>
+#include <unordered_set>
 
 namespace
 {
 
 void
-generic_train_predict(const svmegn::ModelType model_type,
-                      const svmegn::SVMType svm_type,
-                      const svmegn::KernelType kernel_type,
-                      const svmegn::LinearType linear_type =
-                          svmegn::LinearType::L2R_L2LOSS_SVC_DUAL)
+generic_train_predict(const svmegn::Params& params)
 {
-    svmegn::Params params;
-    params.model_type = model_type;
-    params.svm_type = svm_type;
-    params.kernel_type = kernel_type;
-    params.linear_type = linear_type;
     const auto X = (Eigen::MatrixXd{10, 2} << 1,
                     1,
                     0,
@@ -85,38 +77,49 @@ TEST(svmegn, svm_generic_combinations)
     {
         for (int kern = 0; kern < 5; ++kern)
         {
-            generic_train_predict(svmegn::ModelType::SVM,
-                                  static_cast<svmegn::SVMType>(svm),
-                                  static_cast<svmegn::KernelType>(kern));
+            for (int shrink = 0; shrink < 2; ++shrink)
+            {
+                for (int prob = 0; prob < 2; ++prob)
+                {
+                    svmegn::Params params;
+                    params.model_type = svmegn::ModelType::SVM;
+                    params.svm_type = static_cast<svmegn::SVMType>(svm);
+                    params.kernel_type = static_cast<svmegn::KernelType>(kern);
+                    params.shrinking = static_cast<bool>(shrink);
+                    params.probability = static_cast<bool>(prob);
+                    generic_train_predict(params);
+                }
+            }
         }
     }
 }
 
 TEST(svmegn, linear_generic_combinations)
 {
-    for (int lin = 0; lin < 8; ++lin)
+    std::unordered_set<int> lin_skipped{8, 9, 10, 14, 15, 16, 17, 18, 19, 20};
+    for (int lin = 0; lin < 22; ++lin)
     {
+        if (lin_skipped.count(lin) > 0)
+        {
+            continue;
+        }
         if (lin == 4)
         {
             // TODO figure out why this solver crashes
             continue;
         }
-        generic_train_predict(svmegn::ModelType::LINEAR,
-                              svmegn::SVMType::C_SVC,
-                              svmegn::KernelType::LINEAR,
-                              static_cast<svmegn::LinearType>(lin));
+        for (int regb = 0; regb < 2; ++regb)
+        {
+            for (int bias = -1; bias < 2; ++bias)
+            {
+                svmegn::Params params;
+                params.linear_type = static_cast<svmegn::LinearType>(lin);
+                params.regularize_bias = static_cast<bool>(regb);
+                params.bias = bias;
+                generic_train_predict(params);
+            }
+        }
     }
-    for (int lin = 11; lin < 14; ++lin)
-    {
-        generic_train_predict(svmegn::ModelType::LINEAR,
-                              svmegn::SVMType::C_SVC,
-                              svmegn::KernelType::LINEAR,
-                              static_cast<svmegn::LinearType>(lin));
-    }
-    generic_train_predict(svmegn::ModelType::LINEAR,
-                          svmegn::SVMType::C_SVC,
-                          svmegn::KernelType::LINEAR,
-                          svmegn::LinearType::ONECLASS_SVM);
 }
 
 int
