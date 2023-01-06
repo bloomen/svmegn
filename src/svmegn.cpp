@@ -427,76 +427,85 @@ private:
     liblinear::problem* m_prob = allocate<liblinear::problem>(1);
 };
 
-class SvmModel
+} // namespace
+
+struct Model::Impl
 {
-public:
-    SvmModel() = default;
-    explicit SvmModel(libsvm::svm_model* model, Parameters params)
-        : m_model{model}
-        , m_params(std::move(params))
+    Impl() = default;
+    virtual ~Impl() = default;
+
+    Impl(const Impl&) = delete;
+    Impl&
+    operator=(const Impl&) = delete;
+    Impl(Impl&&) = delete;
+    Impl&
+    operator=(Impl&&) = delete;
+
+    virtual void
+    copy_from(const Impl& i) = 0;
+    virtual const Parameters&
+    params() const = 0;
+    virtual void
+    train(Parameters params,
+          const Eigen::MatrixXd& X,
+          const Eigen::MatrixXd& y) = 0;
+    virtual double
+    predict(const Eigen::RowVectorXd& row) const = 0;
+    virtual void
+    save(std::ostream& os) const = 0;
+    virtual void
+    load(std::istream& is, int version) = 0;
+};
+
+struct Model::SvmImpl : public Model::Impl
+{
+    ~SvmImpl()
     {
+        destroy_model(m_model);
     }
 
-    ~SvmModel()
+    void
+    copy_from(const Model::Impl& i) override
     {
-        destroy(m_model);
-    }
-
-    SvmModel(const SvmModel& other)
-        : m_model{allocate<libsvm::svm_model>(1, true)}
-        , m_params{other.m_params}
-    {
-        copy_model(*other.m_model, *m_model);
+        const auto& svmi = static_cast<const Model::SvmImpl&>(i);
+        destroy_model(m_model);
+        m_model = allocate<libsvm::svm_model>(1, true);
+        copy_model(*svmi.m_model, *m_model);
+        m_params = svmi.m_params;
         m_model->param = to_svm_params(m_params);
     }
 
-    SvmModel&
-    operator=(const SvmModel& other)
-    {
-        if (this != &other)
-        {
-            destroy(m_model);
-            m_model = allocate<libsvm::svm_model>(1, true);
-            copy_model(*other.m_model, *m_model);
-            m_params = other.m_params;
-            m_model->param = to_svm_params(m_params);
-        }
-        return *this;
-    }
-
-    SvmModel(SvmModel&& other)
-        : m_model{other.m_model}
-        , m_params{std::move(other.m_params)}
-    {
-        other.m_model = nullptr;
-    }
-
-    SvmModel&
-    operator=(SvmModel&& other)
-    {
-        if (this != &other)
-        {
-            m_model = other.m_model;
-            other.m_model = nullptr;
-            m_params = std::move(other.m_params);
-        }
-        return *this;
-    }
-
-    libsvm::svm_model&
-    get() const
-    {
-        return *m_model;
-    }
-
     const Parameters&
-    params() const
+    params() const override
     {
         return m_params;
     }
 
     void
-    save(std::ostream& os) const
+    train(Parameters params,
+          const Eigen::MatrixXd& X,
+          const Eigen::MatrixXd& y) override
+    {
+        m_params = std::move(params);
+        const auto svm_params = to_svm_params(m_params);
+        SvmProblem prob{X, y};
+        const auto error =
+            libsvm::svm_check_parameter(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        m_model = svm_train(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(m_model != nullptr) << "svm_train() failed";
+        prob.set_sv_indices(m_model->sv_indices, m_model->l);
+    }
+
+    double
+    predict(const Eigen::RowVectorXd& row) const override
+    {
+        auto record = make_svm_record(row);
+        return libsvm::svm_predict(m_model, record.get());
+    }
+
+    void
+    save(std::ostream& os) const override
     {
         SVMEGN_ASSERT(m_model != nullptr);
         write(os, serialize_version);
@@ -599,7 +608,7 @@ public:
     }
 
     void
-    load(std::istream& is, const int version)
+    load(std::istream& is, const int version) override
     {
         (void)version;
         read_parameters(is, m_params);
@@ -608,7 +617,7 @@ public:
         read(is, have_model);
         if (have_model)
         {
-            destroy(m_model);
+            destroy_model(m_model);
             m_model = allocate<libsvm::svm_model>(1, true);
             m_model->param = to_svm_params(m_params);
             read(is, m_model->nr_class);
@@ -713,7 +722,7 @@ public:
 
 private:
     static void
-    destroy(libsvm::svm_model* model)
+    destroy_model(libsvm::svm_model*& model)
     {
         if (!model)
         {
@@ -817,78 +826,6 @@ private:
 
     libsvm::svm_model* m_model = nullptr;
     Parameters m_params;
-};
-
-} // namespace
-
-struct Model::Impl
-{
-    virtual ~Impl() = default;
-    virtual void
-    copy_from(const Impl& i) = 0;
-    virtual const Parameters&
-    params() const = 0;
-    virtual void
-    train(Parameters params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y) = 0;
-    virtual double
-    predict(const Eigen::RowVectorXd& row) const = 0;
-    virtual void
-    save(std::ostream& os) const = 0;
-    virtual void
-    load(std::istream& is, int version) = 0;
-};
-
-struct Model::SvmImpl : public Model::Impl
-{
-    void
-    copy_from(const Model::Impl& i) override
-    {
-        m_model = static_cast<const Model::SvmImpl&>(i).m_model;
-    }
-
-    const Parameters&
-    params() const override
-    {
-        return m_model.params();
-    }
-
-    void
-    train(Parameters params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y) override
-    {
-        const auto svm_params = to_svm_params(params);
-        SvmProblem prob{X, y};
-        const auto error =
-            libsvm::svm_check_parameter(&prob.get(), &svm_params);
-        SVMEGN_ASSERT(error == nullptr) << error;
-        m_model =
-            SvmModel{svm_train(&prob.get(), &svm_params), std::move(params)};
-        prob.set_sv_indices(m_model.get().sv_indices, m_model.get().l);
-    }
-
-    double
-    predict(const Eigen::RowVectorXd& row) const override
-    {
-        auto record = make_svm_record(row);
-        return libsvm::svm_predict(&m_model.get(), record.get());
-    }
-
-    void
-    save(std::ostream& os) const override
-    {
-        m_model.save(os);
-    }
-
-    void
-    load(std::istream& is, const int version) override
-    {
-        m_model.load(is, version);
-    }
-
-    SvmModel m_model;
 };
 
 std::unique_ptr<Model::Impl>
