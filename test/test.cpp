@@ -19,7 +19,7 @@ generic_train_predict(const svmegn::ModelType model_type,
                       const svmegn::LinearType linear_type =
                           svmegn::LinearType::L2R_L2LOSS_SVC_DUAL)
 {
-    svmegn::Parameters params;
+    svmegn::Params params;
     params.model_type = model_type;
     params.svm_type = svm_type;
     params.kernel_type = kernel_type;
@@ -122,8 +122,8 @@ TEST(svmegn, linear_generic_combinations)
 int
 main(int argc, char** argv)
 {
-    svmegn::SVM::remove_print_string_function();
-    svmegn::Linear::remove_print_string_function();
+    svmegn::remove_print_string_function(svmegn::ModelType::SVM);
+    svmegn::remove_print_string_function(svmegn::ModelType::LINEAR);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

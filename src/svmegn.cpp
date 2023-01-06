@@ -191,7 +191,7 @@ read_array(std::istream& is, T* data, const std::size_t size)
 }
 
 void
-write_parameters(std::ostream& os, const Parameters& params)
+write_parameters(std::ostream& os, const Params& params)
 {
     write(os, params.model_type);
     write(os, params.svm_type);
@@ -216,7 +216,7 @@ write_parameters(std::ostream& os, const Parameters& params)
 }
 
 void
-read_parameters(std::istream& is, Parameters& params)
+read_parameters(std::istream& is, Params& params)
 {
     // Note: model_type already read at this point
     read(is, params.svm_type);
@@ -241,7 +241,7 @@ read_parameters(std::istream& is, Parameters& params)
 }
 
 libsvm::svm_parameter
-to_svm_params(const Parameters& ip)
+to_svm_params(const Params& ip)
 {
     libsvm::svm_parameter op;
     op.svm_type = static_cast<int>(ip.svm_type);
@@ -268,7 +268,7 @@ to_svm_params(const Parameters& ip)
 }
 
 liblinear::parameter
-to_linear_params(const Parameters& ip)
+to_linear_params(const Params& ip)
 {
     liblinear::parameter op;
     op.solver_type = static_cast<int>(ip.linear_type);
@@ -429,6 +429,28 @@ private:
 
 } // namespace
 
+void
+set_print_string_function(const ModelType model_type, void (*func)(const char*))
+{
+    switch (model_type)
+    {
+    case ModelType::SVM:
+        libsvm::svm_set_print_string_function(func);
+        return;
+    case ModelType::LINEAR:
+        liblinear::set_print_string_function(func);
+        return;
+    }
+    SVMEGN_ASSERT(false) << "No such model type: " << model_type;
+    return;
+}
+
+void
+remove_print_string_function(const ModelType model_type)
+{
+    set_print_string_function(model_type, [](const char*) {});
+}
+
 struct Model::Impl
 {
     Impl() = default;
@@ -443,10 +465,10 @@ struct Model::Impl
 
     virtual void
     copy_from(const Impl& i) = 0;
-    virtual const Parameters&
+    virtual const Params&
     params() const = 0;
     virtual void
-    train(Parameters params,
+    train(Params params,
           const Eigen::MatrixXd& X,
           const Eigen::MatrixXd& y) = 0;
     virtual double
@@ -475,14 +497,14 @@ struct Model::SvmImpl : public Model::Impl
         m_model->param = to_svm_params(m_params);
     }
 
-    const Parameters&
+    const Params&
     params() const override
     {
         return m_params;
     }
 
     void
-    train(Parameters params,
+    train(Params params,
           const Eigen::MatrixXd& X,
           const Eigen::MatrixXd& y) override
     {
@@ -826,7 +848,7 @@ private:
     }
 
     libsvm::svm_model* m_model = nullptr;
-    Parameters m_params;
+    Params m_params;
 };
 
 struct Model::LinearImpl : public Model::Impl
@@ -847,14 +869,14 @@ struct Model::LinearImpl : public Model::Impl
         m_model->param = to_linear_params(m_params);
     }
 
-    const Parameters&
+    const Params&
     params() const override
     {
         return m_params;
     }
 
     void
-    train(Parameters params,
+    train(Params params,
           const Eigen::MatrixXd& X,
           const Eigen::MatrixXd& y) override
     {
@@ -984,7 +1006,7 @@ private:
     }
 
     liblinear::model* m_model = nullptr;
-    Parameters m_params;
+    Params m_params;
 };
 
 std::unique_ptr<Model::Impl>
@@ -1006,7 +1028,7 @@ Model::~Model()
 }
 
 Model::Model(const Model& other)
-    : m_impl{make_impl(other.parameters().model_type)}
+    : m_impl{make_impl(other.params().model_type)}
 {
     m_impl->copy_from(*other.m_impl);
 }
@@ -1017,7 +1039,7 @@ Model::operator=(const Model& other)
     if (this != &other)
     {
         m_impl.reset();
-        m_impl = make_impl(other.parameters().model_type);
+        m_impl = make_impl(other.params().model_type);
         m_impl->copy_from(*other.m_impl);
     }
     return *this;
@@ -1029,9 +1051,7 @@ Model&
 Model::operator=(Model&&) = default;
 
 Model
-Model::train(Parameters params,
-             const Eigen::MatrixXd& X,
-             const Eigen::VectorXd& y)
+Model::train(Params params, const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
 {
     Model model;
     model.m_impl = make_impl(params.model_type);
@@ -1039,8 +1059,8 @@ Model::train(Parameters params,
     return model;
 }
 
-const Parameters&
-Model::parameters() const
+const Params&
+Model::params() const
 {
     return m_impl->params();
 }
@@ -1073,30 +1093,6 @@ Model::load(std::istream& is)
     model.m_impl = make_impl(model_type);
     model.m_impl->load(is, version);
     return model;
-}
-
-void
-SVM::set_print_string_function(void (*print_func)(const char*))
-{
-    libsvm::svm_set_print_string_function(print_func);
-}
-
-void
-SVM::remove_print_string_function()
-{
-    SVM::set_print_string_function([](const char*) {});
-}
-
-void
-Linear::set_print_string_function(void (*print_func)(const char*))
-{
-    liblinear::set_print_string_function(print_func);
-}
-
-void
-Linear::remove_print_string_function()
-{
-    Linear::set_print_string_function([](const char*) {});
 }
 
 } // namespace svmegn

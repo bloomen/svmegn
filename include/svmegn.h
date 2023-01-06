@@ -24,9 +24,15 @@ namespace svmegn
 
 enum ModelType
 {
-    SVM = 0,
-    LINEAR = 1
+    SVM = 0, // libsvm
+    LINEAR = 1 // liblinear
 };
+
+void
+set_print_string_function(ModelType model_type, void (*func)(const char*));
+
+void
+remove_print_string_function(ModelType model_type);
 
 enum class SVMType
 {
@@ -62,9 +68,7 @@ enum class KernelType
     PRECOMPUTED = 4
 };
 
-// TODO split parameters to distinguish between SVM, Linear, and common
-
-struct Parameters
+struct Params
 {
     ModelType model_type = ModelType::SVM;
     SVMType svm_type = SVMType::C_SVC;
@@ -111,12 +115,10 @@ public:
     operator=(Model&&);
 
     static Model
-    train(Parameters params,
-          const Eigen::MatrixXd& X,
-          const Eigen::VectorXd& y);
+    train(Params params, const Eigen::MatrixXd& X, const Eigen::VectorXd& y);
 
-    const Parameters&
-    parameters() const;
+    const Params&
+    params() const;
 
     Eigen::VectorXd
     predict(const Eigen::MatrixXd& X) const;
@@ -137,26 +139,6 @@ private:
     friend struct LinearImpl;
     static std::unique_ptr<Impl>
     make_impl(const ModelType);
-};
-
-class SVM : public Model
-{
-public:
-    static void
-    set_print_string_function(void (*)(const char*));
-
-    static void
-    remove_print_string_function();
-};
-
-class Linear : public Model
-{
-public:
-    static void
-    set_print_string_function(void (*)(const char*));
-
-    static void
-    remove_print_string_function();
 };
 
 } // namespace svmegn
