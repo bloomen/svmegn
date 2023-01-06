@@ -195,15 +195,14 @@ write_parameters(std::ostream& os, const Params& params)
 {
     write(os, params.model_type);
     write(os, params.svm_type);
-    write(os, params.linear_type);
     write(os, params.kernel_type);
+    write(os, params.linear_type);
     write(os, params.degree);
     write(os, params.gamma);
     write(os, params.coef0);
     write(os, params.cache_size);
     write(os, params.eps);
     write(os, params.C);
-    write(os, params.nr_weight);
     write(os, params.weight_label);
     write(os, params.weight);
     write(os, params.nu);
@@ -220,15 +219,14 @@ read_parameters(std::istream& is, Params& params)
 {
     // Note: model_type already read at this point
     read(is, params.svm_type);
-    read(is, params.linear_type);
     read(is, params.kernel_type);
+    read(is, params.linear_type);
     read(is, params.degree);
     read(is, params.gamma);
     read(is, params.coef0);
     read(is, params.cache_size);
     read(is, params.eps);
     read(is, params.C);
-    read(is, params.nr_weight);
     read(is, params.weight_label);
     read(is, params.weight);
     read(is, params.nu);
@@ -252,15 +250,14 @@ to_svm_params(const Params& ip)
     op.cache_size = ip.cache_size;
     op.eps = ip.eps;
     op.C = ip.C;
-    op.nr_weight = ip.nr_weight;
+    op.nr_weight = static_cast<int>(ip.weight.size());
     op.nu = ip.nu;
     op.p = ip.p;
     op.shrinking = ip.shrinking ? 1 : 0;
     op.probability = ip.probability ? 1 : 0;
     if (op.nr_weight > 0)
     {
-        SVMEGN_ASSERT(op.nr_weight == ip.weight_label.size());
-        SVMEGN_ASSERT(op.nr_weight == ip.weight.size());
+        SVMEGN_ASSERT(ip.weight.size() == ip.weight_label.size());
         op.weight_label = const_cast<int*>(ip.weight_label.data());
         op.weight = const_cast<double*>(ip.weight.data());
     }
@@ -274,13 +271,12 @@ to_linear_params(const Params& ip)
     op.solver_type = static_cast<int>(ip.linear_type);
     op.eps = ip.eps;
     op.C = ip.C;
-    op.nr_weight = ip.nr_weight;
+    op.nr_weight = static_cast<int>(ip.weight.size());
     op.p = ip.p;
     op.nu = ip.nu;
     if (op.nr_weight > 0)
     {
-        SVMEGN_ASSERT(op.nr_weight == ip.weight_label.size());
-        SVMEGN_ASSERT(op.nr_weight == ip.weight.size());
+        SVMEGN_ASSERT(ip.weight.size() == ip.weight_label.size());
         op.weight_label = const_cast<int*>(ip.weight_label.data());
         op.weight = const_cast<double*>(ip.weight.data());
     }
@@ -393,10 +389,6 @@ public:
         std::free(m_prob->y);
         for (int i = 0; i < m_prob->l; ++i)
         {
-            if (m_sv_indices.find(i + 1) != m_sv_indices.end())
-            {
-                continue;
-            }
             std::free(m_prob->x[i]);
         }
         std::free(m_prob->x);
@@ -416,14 +408,7 @@ public:
         return *m_prob;
     }
 
-    void
-    set_sv_indices(const int* idx, const int l)
-    {
-        m_sv_indices = std::unordered_set<int>{idx, idx + l};
-    }
-
 private:
-    std::unordered_set<int> m_sv_indices;
     liblinear::problem* m_prob = allocate<liblinear::problem>(1);
 };
 
@@ -888,7 +873,6 @@ struct Model::LinearImpl : public Model::Impl
         SVMEGN_ASSERT(error == nullptr) << error;
         m_model = liblinear::train(&prob.get(), &linear_params);
         SVMEGN_ASSERT(m_model != nullptr) << "liblinear::train() failed";
-        //        prob.set_sv_indices(m_model->sv_indices, m_model->l);
     }
 
     double

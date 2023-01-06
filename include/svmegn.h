@@ -34,7 +34,7 @@ set_print_string_function(ModelType model_type, void (*func)(const char*));
 void
 remove_print_string_function(ModelType model_type);
 
-enum class SVMType
+enum class SVMType // Used for ModelType::SVM
 {
     C_SVC = 0,
     NU_SVC = 1,
@@ -43,7 +43,16 @@ enum class SVMType
     NU_SVR = 4
 };
 
-enum class LinearType
+enum class KernelType // Used for ModelType::SVM
+{
+    LINEAR = 0,
+    POLY = 1,
+    RBF = 2,
+    SIGMOID = 3,
+    PRECOMPUTED = 4
+};
+
+enum class LinearType // Used for ModelType::Linear
 {
     L2R_LR = 0,
     L2R_L2LOSS_SVC_DUAL = 1,
@@ -59,36 +68,62 @@ enum class LinearType
     ONECLASS_SVM = 21
 };
 
-enum class KernelType
-{
-    LINEAR = 0,
-    POLY = 1,
-    RBF = 2,
-    SIGMOID = 3,
-    PRECOMPUTED = 4
-};
-
 struct Params
 {
     ModelType model_type = ModelType::SVM;
+
+    // For ModelType::SVM
     SVMType svm_type = SVMType::C_SVC;
-    LinearType linear_type = LinearType::L2R_L2LOSS_SVC_DUAL;
+
+    // For ModelType::SVM
     KernelType kernel_type = KernelType::RBF;
-    int degree = 3; // for poly
-    double gamma = 1.0; // for poly/rbf/sigmoid
-    double coef0 = 0.0; // for poly/sigmoid
-    double cache_size = 200; // in MB
-    double eps = 0.001; // stopping criteria
-    double C = 1.0; // for C_SVC, EPSILON_SVR and NU_SVR
-    int nr_weight = 0; // for C_SVC
-    Eigen::VectorXi weight_label; // for C_SVC
-    Eigen::VectorXd weight; // for C_SVC
-    double nu = 0.5; // for NU_SVC, ONE_CLASS, and NU_SVR
-    double p = 0.1; // for EPSILON_SVR
-    bool shrinking = true; // use the shrinking heuristics
-    bool probability = false; // do probability estimates
+
+    // For ModelType::LINEAR
+    LinearType linear_type = LinearType::L2R_L2LOSS_SVC_DUAL;
+
+    // For ModelType::SVM. For poly
+    int degree = 3;
+
+    // For ModelType::SVM. For poly/rbf/sigmoid
+    double gamma = 1.0;
+
+    // For ModelType::SVM. For poly/sigmoid
+    double coef0 = 0.0;
+
+    // For ModelType::SVM. In MB
+    double cache_size = 200;
+
+    // For ModelType::SVM/LINEAR. stopping criteria
+    double eps = 0.001;
+
+    // For ModelType::SVM/LINEAR. For C_SVC, EPSILON_SVR and NU_SVR
+    double C = 1.0;
+
+    // For ModelType::SVM/LINEAR. For C_SVC
+    Eigen::VectorXi weight_label;
+
+    // For ModelType::SVM/LINEAR. For C_SVC
+    Eigen::VectorXd weight;
+
+    // For ModelType::SVM/LINEAR. For NU_SVC, ONE_CLASS, and NU_SVR
+    double nu = 0.5;
+
+    // For ModelType::SVM/LINEAR. For EPSILON_SVR
+    double p = 0.1;
+
+    // For ModelType::SVM. Use the shrinking heuristics
+    bool shrinking = true;
+
+    // For ModelType::SVM. Do probability estimates
+    bool probability = false;
+
+    // For ModelType::LINEAR
     Eigen::VectorXd init_sol;
+
+    // For ModelType::LINEAR
     bool regularize_bias = true;
+
+    // For ModelType::LINEAR
     double bias = -1;
 };
 
