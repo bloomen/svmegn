@@ -218,7 +218,7 @@ write_parameters(std::ostream& os, const Parameters& params)
 void
 read_parameters(std::istream& is, Parameters& params)
 {
-    read(is, params.model_type);
+    // Note: model_type already read at this point
     read(is, params.svm_type);
     read(is, params.linear_type);
     read(is, params.kernel_type);
@@ -599,10 +599,9 @@ public:
     }
 
     void
-    load(std::istream& is)
+    load(std::istream& is, const int version)
     {
-        int version;
-        read(is, version);
+        (void)version;
         read_parameters(is, m_params);
 
         bool have_model;
@@ -838,7 +837,7 @@ struct Model::Impl
     virtual void
     save(std::ostream& os) const = 0;
     virtual void
-    load(std::istream& is) = 0;
+    load(std::istream& is, int version) = 0;
 };
 
 struct Model::SvmImpl : public Model::Impl
@@ -884,9 +883,9 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     void
-    load(std::istream& is) override
+    load(std::istream& is, const int version) override
     {
-        m_model.load(is);
+        m_model.load(is, version);
     }
 
     SvmModel m_model;
@@ -899,29 +898,12 @@ Model::make_impl(const ModelType model_type)
     {
     case ModelType::SVM:
         return std::make_unique<Model::SvmImpl>();
+    case ModelType::LINEAR:
+        //        return std::make_unique<Model::LinearImpl>();
+        return nullptr;
     }
-}
-
-std::unique_ptr<Model::Impl>
-Model::make_impl(std::istream& is)
-{
-    const auto pos = is.tellg();
-    int version;
-    read(is, version);
-    ModelType model_type;
-    read(is, model_type);
-    is.seekg(pos);
-    auto impl = make_impl(model_type);
-    impl->load(is);
-    return impl;
-}
-
-std::unique_ptr<Model::Impl>
-Model::make_impl(const Model::Impl& i)
-{
-    auto impl = make_impl(i.params().model_type);
-    impl->copy_from(i);
-    return impl;
+    SVMEGN_ASSERT(false) << "No such model type: " << model_type;
+    return nullptr;
 }
 
 Model::~Model()
@@ -929,8 +911,9 @@ Model::~Model()
 }
 
 Model::Model(const Model& other)
-    : m_impl{make_impl(*other.m_impl)}
+    : m_impl{make_impl(other.parameters().model_type)}
 {
+    m_impl->copy_from(*other.m_impl);
 }
 
 Model&
@@ -939,7 +922,8 @@ Model::operator=(const Model& other)
     if (this != &other)
     {
         m_impl.reset();
-        m_impl = make_impl(*other.m_impl);
+        m_impl = make_impl(other.parameters().model_type);
+        m_impl->copy_from(*other.m_impl);
     }
     return *this;
 }
@@ -986,8 +970,13 @@ Model::save(std::ostream& os) const
 Model
 Model::load(std::istream& is)
 {
+    int version;
+    read(is, version);
+    ModelType model_type;
+    read(is, model_type);
     Model model;
-    model.m_impl = make_impl(is);
+    model.m_impl = make_impl(model_type);
+    model.m_impl->load(is, version);
     return model;
 }
 

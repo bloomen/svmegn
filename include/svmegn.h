@@ -62,6 +62,8 @@ enum class KernelType
     PRECOMPUTED = 4
 };
 
+// TODO split parameters to distinguish between SVM, Linear, and common
+
 struct Parameters
 {
     ModelType model_type = ModelType::SVM;
@@ -133,10 +135,6 @@ private:
     friend struct SvmImpl;
     static std::unique_ptr<Impl>
     make_impl(const ModelType);
-    static std::unique_ptr<Impl>
-    make_impl(std::istream&);
-    static std::unique_ptr<Impl>
-    make_impl(const Impl&);
 };
 
 class SVM : public Model
