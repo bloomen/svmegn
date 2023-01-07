@@ -300,7 +300,17 @@ to_linear_params(const Params& ip)
         op.weight_label = nullptr;
         op.weight = nullptr;
     }
-    op.init_sol = const_cast<double*>(ip.init_sol.data());
+    if (ip.init_sol.size() > 0)
+    {
+        op.init_sol = allocate<double>(ip.init_sol.size());
+        std::copy(ip.init_sol.data(),
+                  ip.init_sol.data() + ip.init_sol.size(),
+                  op.init_sol);
+    }
+    else
+    {
+        op.init_sol = nullptr;
+    }
     op.regularize_bias = ip.regularize_bias;
     return op;
 }
@@ -762,8 +772,7 @@ private:
                 std::free(model->SV[i]);
             }
         }
-        std::free(model->param.weight_label);
-        std::free(model->param.weight);
+        libsvm::svm_destroy_param(&model->param);
         libsvm::svm_free_and_destroy_model(&model);
         model = nullptr;
     }
@@ -984,8 +993,7 @@ private:
         {
             return;
         }
-        std::free(model->param.weight_label);
-        std::free(model->param.weight);
+        liblinear::destroy_param(&model->param);
         liblinear::free_and_destroy_model(&model);
         model = nullptr;
     }
