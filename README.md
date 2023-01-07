@@ -6,8 +6,6 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 
 ## TODO
 
-* Give access to the trained model
-* Add Eigen sparse matrix support
 * Add support for probas/values
 * Add support for cross-validation
 * Address warnings on all platforms

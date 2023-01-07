@@ -152,7 +152,7 @@ struct Serializer<false, true>
     static void
     read(std::istream& is, T& value)
     {
-        using Index = decltype(std::declval<Eigen::MatrixXd>().rows());
+        using Index = decltype(std::declval<MatrixD>().rows());
         Index rows;
         is.read(reinterpret_cast<char*>(&rows), sizeof(rows));
         Index cols;
@@ -328,6 +328,21 @@ make_svm_record(const Eigen::RowVectorXd& row)
                                                                    std::free};
 }
 
+std::unique_ptr<libsvm::svm_node, decltype(std::free)*>
+make_svm_record(SpaMatrixD::InnerIterator it)
+{
+    std::vector<libsvm::svm_node> row;
+    for (; it; ++it)
+    {
+        row.push_back({static_cast<int>(it.col()) + 1, it.value()});
+    }
+    row.push_back({-1, 0});
+    auto record = allocate<libsvm::svm_node>(row.size());
+    std::copy(row.begin(), row.end(), record);
+    return std::unique_ptr<libsvm::svm_node, decltype(std::free)*>{record,
+                                                                   std::free};
+}
+
 std::unique_ptr<liblinear::feature_node, decltype(std::free)*>
 make_linear_record(const Eigen::RowVectorXd& row)
 {
@@ -341,10 +356,29 @@ make_linear_record(const Eigen::RowVectorXd& row)
         record, std::free};
 }
 
+std::unique_ptr<liblinear::feature_node, decltype(std::free)*>
+make_linear_record(SpaMatrixD::InnerIterator it, int& n_features)
+{
+    std::vector<liblinear::feature_node> row;
+    for (; it; ++it)
+    {
+        row.push_back({static_cast<int>(it.col()) + 1, it.value()});
+    }
+    if (row.back().index > n_features)
+    {
+        n_features = row.back().index;
+    }
+    row.push_back({-1, 0});
+    auto record = allocate<liblinear::feature_node>(row.size());
+    std::copy(row.begin(), row.end(), record);
+    return std::unique_ptr<liblinear::feature_node, decltype(std::free)*>{
+        record, std::free};
+}
+
 class SvmProblem
 {
 public:
-    SvmProblem(const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
+    SvmProblem(const MatrixD& X, const VectorD& y)
     {
         m_prob->l = static_cast<int>(X.rows());
         m_prob->y = allocate<double>(m_prob->l);
@@ -353,6 +387,19 @@ public:
         for (int i = 0; i < m_prob->l; ++i)
         {
             m_prob->x[i] = make_svm_record(X.row(i)).release();
+        }
+    }
+
+    SvmProblem(const SpaMatrixD& X, const VectorD& y)
+    {
+        m_prob->l = static_cast<int>(X.outerSize());
+        m_prob->y = allocate<double>(m_prob->l);
+        std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
+        m_prob->x = allocate<libsvm::svm_node*>(m_prob->l);
+        for (int i = 0; i < m_prob->l; ++i)
+        {
+            SpaMatrixD::InnerIterator it{X, i};
+            m_prob->x[i] = make_svm_record(it).release();
         }
     }
 
@@ -398,9 +445,7 @@ private:
 class LinearProblem
 {
 public:
-    LinearProblem(const Eigen::MatrixXd& X,
-                  const Eigen::VectorXd& y,
-                  const double bias)
+    LinearProblem(const MatrixD& X, const VectorD& y, const double bias)
     {
         m_prob->l = static_cast<int>(X.rows());
         m_prob->n = static_cast<int>(X.cols());
@@ -410,6 +455,21 @@ public:
         for (int i = 0; i < m_prob->l; ++i)
         {
             m_prob->x[i] = make_linear_record(X.row(i)).release();
+        }
+        m_prob->bias = bias;
+    }
+
+    LinearProblem(const SpaMatrixD& X, const VectorD& y, const double bias)
+    {
+        m_prob->l = static_cast<int>(X.outerSize());
+        m_prob->n = 0; // set further down
+        m_prob->y = allocate<double>(m_prob->l);
+        std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
+        m_prob->x = allocate<liblinear::feature_node*>(m_prob->l);
+        for (int i = 0; i < m_prob->l; ++i)
+        {
+            SpaMatrixD::InnerIterator it{X, i};
+            m_prob->x[i] = make_linear_record(it, m_prob->n).release();
         }
         m_prob->bias = bias;
     }
@@ -483,11 +543,13 @@ struct Model::Impl
     virtual const Params&
     params() const = 0;
     virtual void
-    train(Params params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y) = 0;
+    train(Params params, const MatrixD& X, const VectorD& y) = 0;
+    virtual void
+    train(Params params, const SpaMatrixD& X, const VectorD& y) = 0;
     virtual double
     predict(const Eigen::RowVectorXd& row) const = 0;
+    virtual double
+    predict(SpaMatrixD::InnerIterator it) const = 0;
     virtual void
     save(std::ostream& os) const = 0;
     virtual void
@@ -519,25 +581,28 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     void
-    train(Params params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y) override
+    train(Params params, const MatrixD& X, const VectorD& y) override
     {
-        m_params = std::move(params);
-        const auto svm_params = to_svm_params(m_params);
-        SvmProblem prob{X, y};
-        const auto error =
-            libsvm::svm_check_parameter(&prob.get(), &svm_params);
-        SVMEGN_ASSERT(error == nullptr) << error;
-        m_model = libsvm::svm_train(&prob.get(), &svm_params);
-        SVMEGN_ASSERT(m_model != nullptr) << "libsvm::svm_train() failed";
-        prob.set_sv_indices(m_model->sv_indices, m_model->l);
+        train_impl(std::move(params), X, y);
+    }
+
+    void
+    train(Params params, const SpaMatrixD& X, const VectorD& y) override
+    {
+        train_impl(std::move(params), X, y);
     }
 
     double
     predict(const Eigen::RowVectorXd& row) const override
     {
         auto record = make_svm_record(row);
+        return libsvm::svm_predict(m_model, record.get());
+    }
+
+    double
+    predict(SpaMatrixD::InnerIterator it) const override
+    {
+        auto record = make_svm_record(it);
         return libsvm::svm_predict(m_model, record.get());
     }
 
@@ -758,6 +823,21 @@ struct Model::SvmImpl : public Model::Impl
     }
 
 private:
+    template <typename Mat>
+    void
+    train_impl(Params params, const Mat& X, const VectorD& y)
+    {
+        m_params = std::move(params);
+        const auto svm_params = to_svm_params(m_params);
+        SvmProblem prob{X, y};
+        const auto error =
+            libsvm::svm_check_parameter(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        m_model = libsvm::svm_train(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(m_model != nullptr) << "libsvm::svm_train() failed";
+        prob.set_sv_indices(m_model->sv_indices, m_model->l);
+    }
+
     static void
     destroy_model(libsvm::svm_model*& model)
     {
@@ -892,24 +972,29 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     void
-    train(Params params,
-          const Eigen::MatrixXd& X,
-          const Eigen::MatrixXd& y) override
+    train(Params params, const MatrixD& X, const VectorD& y) override
     {
-        m_params = std::move(params);
-        const auto linear_params = to_linear_params(m_params);
-        LinearProblem prob{X, y, m_params.bias};
-        const auto error =
-            liblinear::check_parameter(&prob.get(), &linear_params);
-        SVMEGN_ASSERT(error == nullptr) << error;
-        m_model = liblinear::train(&prob.get(), &linear_params);
-        SVMEGN_ASSERT(m_model != nullptr) << "liblinear::train() failed";
+        train_impl(std::move(params), X, y);
+    }
+
+    void
+    train(Params params, const SpaMatrixD& X, const VectorD& y) override
+    {
+        train_impl(std::move(params), X, y);
     }
 
     double
     predict(const Eigen::RowVectorXd& row) const override
     {
         auto record = make_linear_record(row);
+        return liblinear::predict(m_model, record.get());
+    }
+
+    double
+    predict(SpaMatrixD::InnerIterator it) const override
+    {
+        int n;
+        auto record = make_linear_record(it, n);
         return liblinear::predict(m_model, record.get());
     }
 
@@ -986,6 +1071,20 @@ struct Model::LinearImpl : public Model::Impl
     }
 
 private:
+    template <typename Mat>
+    void
+    train_impl(Params params, const Mat& X, const VectorD& y)
+    {
+        m_params = std::move(params);
+        const auto linear_params = to_linear_params(m_params);
+        LinearProblem prob{X, y, m_params.bias};
+        const auto error =
+            liblinear::check_parameter(&prob.get(), &linear_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        m_model = liblinear::train(&prob.get(), &linear_params);
+        SVMEGN_ASSERT(m_model != nullptr) << "liblinear::train() failed";
+    }
+
     static void
     destroy_model(liblinear::model*& model)
     {
@@ -1067,7 +1166,16 @@ Model&
 Model::operator=(Model&&) = default;
 
 Model
-Model::train(Params params, const Eigen::MatrixXd& X, const Eigen::VectorXd& y)
+Model::train(Params params, const MatrixD& X, const VectorD& y)
+{
+    Model model;
+    model.m_impl = make_impl(params.model_type);
+    model.m_impl->train(std::move(params), X, y);
+    return model;
+}
+
+Model
+Model::train(Params params, const SpaMatrixD& X, const VectorD& y)
 {
     Model model;
     model.m_impl = make_impl(params.model_type);
@@ -1081,13 +1189,25 @@ Model::params() const
     return m_impl->params();
 }
 
-Eigen::VectorXd
-Model::predict(const Eigen::MatrixXd& X) const
+VectorD
+Model::predict(const MatrixD& X) const
 {
-    Eigen::VectorXd y{X.rows()};
+    VectorD y{X.rows()};
     for (int i = 0; i < X.rows(); ++i)
     {
         y(i) = m_impl->predict(X.row(i));
+    }
+    return y;
+}
+
+VectorD
+Model::predict(const SpaMatrixD& X) const
+{
+    VectorD y{X.outerSize()};
+    for (int i = 0; i < X.outerSize(); ++i)
+    {
+        SpaMatrixD::InnerIterator it{X, i};
+        y(i) = m_impl->predict(it);
     }
     return y;
 }

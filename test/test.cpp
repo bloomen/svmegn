@@ -13,10 +13,46 @@
 namespace
 {
 
+template <typename Mat>
 void
-generic_train_predict(const svmegn::Params& params)
+generic_train_predict_impl(const svmegn::Params& params,
+                           const Mat& X,
+                           const svmegn::VectorD& y)
 {
-    const auto X = (Eigen::MatrixXd{20, 2} << 1,
+    auto svm0 = svmegn::Model::train(params, X, y);
+    const auto p0 = svm0.predict(X);
+    ASSERT_EQ(X.rows(), p0.rows());
+    // test copy constructor
+    const svmegn::Model svm1{svm0};
+    const auto p1 = svm1.predict(X);
+    ASSERT_EQ(p0, p1);
+    // test copy assignment
+    svmegn::Model svm2{svm0};
+    svm2 = svm1;
+    const auto p2 = svm2.predict(X);
+    ASSERT_EQ(p0, p2);
+    // test move constructor
+    const svmegn::Model svm3{std::move(svm0)};
+    const auto p3 = svm3.predict(X);
+    ASSERT_EQ(p0, p3);
+    // test move assignment
+    svmegn::Model svm4{svm1};
+    svm4 = std::move(svm2);
+    const auto p4 = svm4.predict(X);
+    ASSERT_EQ(p0, p4);
+    // test save & load
+    std::stringstream ss;
+    svm4.save(ss);
+    ss.seekg(0);
+    const auto svm5 = svmegn::Model::load(ss);
+    const auto p5 = svm5.predict(X);
+    ASSERT_EQ(p0, p5);
+}
+
+void
+generic_train_predict(svmegn::MatrixD, const svmegn::Params& params)
+{
+    const auto X = (svmegn::MatrixD{20, 2} << 1,
                     1,
                     0,
                     0,
@@ -57,7 +93,7 @@ generic_train_predict(const svmegn::Params& params)
                     0,
                     0)
                        .finished();
-    const auto y = (Eigen::VectorXd{20} << -1,
+    const auto y = (svmegn::VectorD{20} << -1,
                     1,
                     -1,
                     1,
@@ -78,34 +114,68 @@ generic_train_predict(const svmegn::Params& params)
                     -1,
                     1)
                        .finished();
-    auto svm0 = svmegn::Model::train(params, X, y);
-    const auto p0 = svm0.predict(X);
-    ASSERT_EQ(X.rows(), p0.rows());
-    // test copy constructor
-    const svmegn::Model svm1{svm0};
-    const auto p1 = svm1.predict(X);
-    ASSERT_EQ(p0, p1);
-    // test copy assignment
-    svmegn::Model svm2{svm0};
-    svm2 = svm1;
-    const auto p2 = svm2.predict(X);
-    ASSERT_EQ(p0, p2);
-    // test move constructor
-    const svmegn::Model svm3{std::move(svm0)};
-    const auto p3 = svm3.predict(X);
-    ASSERT_EQ(p0, p3);
-    // test move assignment
-    svmegn::Model svm4{svm1};
-    svm4 = std::move(svm2);
-    const auto p4 = svm4.predict(X);
-    ASSERT_EQ(p0, p4);
-    // test save & load
-    std::stringstream ss;
-    svm4.save(ss);
-    ss.seekg(0);
-    const auto svm5 = svmegn::Model::load(ss);
-    const auto p5 = svm5.predict(X);
-    ASSERT_EQ(p0, p5);
+    generic_train_predict_impl(params, X, y);
+}
+
+void
+generic_train_predict(svmegn::SpaMatrixD,
+                      const svmegn::Params& params,
+                      const bool full)
+{
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.push_back({0, 0, 1});
+    triplets.push_back({0, 1, 1});
+    triplets.push_back({1, 0, 0});
+    triplets.push_back({1, 1, 0});
+    triplets.push_back({2, 0, 1});
+    triplets.push_back({2, 1, 1});
+    triplets.push_back({3, 0, 0});
+    triplets.push_back({3, 1, 0});
+    triplets.push_back({4, 0, 1});
+    triplets.push_back({4, 1, 1});
+    if (full)
+    {
+        // to test some missing
+        triplets.push_back({5, 0, 0});
+    }
+    triplets.push_back({5, 1, 0});
+    triplets.push_back({6, 0, 1});
+    triplets.push_back({6, 1, 1});
+    triplets.push_back({7, 0, 0});
+    triplets.push_back({7, 1, 0});
+    triplets.push_back({8, 0, 1});
+    if (full)
+    {
+        // to test some missing
+        triplets.push_back({8, 1, 1});
+    }
+    triplets.push_back({9, 0, 0});
+    triplets.push_back({9, 1, 0});
+    svmegn::SpaMatrixD X{10, 2};
+    X.setFromTriplets(triplets.begin(), triplets.end());
+
+    const auto y = (svmegn::VectorD{20} << -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1,
+                    -1,
+                    1)
+                       .finished();
+    generic_train_predict_impl(params, X, y);
 }
 
 } // namespace
@@ -145,7 +215,14 @@ TEST(svmegn, svm_generic_combinations)
                             params.weight =
                                 (Eigen::VectorXd{2} << 0.4, 0.6).finished();
                         }
-                        generic_train_predict(params);
+                        generic_train_predict(svmegn::MatrixD{}, params);
+                        generic_train_predict(
+                            svmegn::SpaMatrixD{}, params, true);
+                        if (prob == 0)
+                        {
+                            generic_train_predict(
+                                svmegn::SpaMatrixD{}, params, false);
+                        }
                     }
                 }
             }
@@ -187,7 +264,11 @@ TEST(svmegn, linear_generic_combinations)
                             params.init_sol =
                                 (Eigen::VectorXd{2} << 0.1, 0.9).finished();
                         }
-                        generic_train_predict(params);
+                        generic_train_predict(svmegn::MatrixD{}, params);
+                        generic_train_predict(
+                            svmegn::SpaMatrixD{}, params, true);
+                        generic_train_predict(
+                            svmegn::SpaMatrixD{}, params, false);
                     }
                 }
             }

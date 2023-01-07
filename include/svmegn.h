@@ -13,6 +13,7 @@
 #pragma GCC diagnostic ignored "-Wconversion"
 #endif
 #include <Eigen/Core>
+#include <Eigen/SparseCore>
 #if __clang__ || __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -21,7 +22,11 @@ namespace svmegn
 {
 
 using SmallInt = std::int8_t;
-using VectorInt = Eigen::Matrix<std::int32_t, Eigen::Dynamic, Eigen::Dynamic>;
+using VectorI = Eigen::Matrix<std::int32_t, Eigen::Dynamic, 1>;
+using VectorD = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+using MatrixD =
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using SpaMatrixD = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 
 enum ModelType : SmallInt
 {
@@ -30,12 +35,13 @@ enum ModelType : SmallInt
 };
 
 void
-set_print_string_function(ModelType model_type, void (*func)(const char*));
+set_print_string_function(svmegn::ModelType model_type,
+                          void (*func)(const char*));
 
 void
-remove_print_string_function(ModelType model_type);
+remove_print_string_function(svmegn::ModelType model_type);
 
-enum class SVMType : SmallInt // Used for ModelType::SVM
+enum class SVMType : svmegn::SmallInt // Used for ModelType::SVM
 {
     C_SVC = 0,
     NU_SVC = 1,
@@ -44,7 +50,7 @@ enum class SVMType : SmallInt // Used for ModelType::SVM
     NU_SVR = 4
 };
 
-enum class KernelType : SmallInt // Used for ModelType::SVM
+enum class KernelType : svmegn::SmallInt // Used for ModelType::SVM
 {
     LINEAR = 0,
     POLY = 1,
@@ -53,7 +59,7 @@ enum class KernelType : SmallInt // Used for ModelType::SVM
     PRECOMPUTED = 4
 };
 
-enum class LinearType : SmallInt // Used for ModelType::Linear
+enum class LinearType : svmegn::SmallInt // Used for ModelType::Linear
 {
     L2R_LR = 0,
     L2R_L2LOSS_SVC_DUAL = 1,
@@ -71,19 +77,19 @@ enum class LinearType : SmallInt // Used for ModelType::Linear
 
 struct Params
 {
-    ModelType model_type = ModelType::SVM;
+    svmegn::ModelType model_type = svmegn::ModelType::SVM;
 
     // For ModelType::SVM
-    SVMType svm_type = SVMType::C_SVC;
+    svmegn::SVMType svm_type = svmegn::SVMType::C_SVC;
 
     // For ModelType::SVM
-    KernelType kernel_type = KernelType::RBF;
+    svmegn::KernelType kernel_type = svmegn::KernelType::RBF;
 
     // For ModelType::LINEAR
-    LinearType linear_type = LinearType::L2R_L2LOSS_SVC_DUAL;
+    svmegn::LinearType linear_type = svmegn::LinearType::L2R_L2LOSS_SVC_DUAL;
 
     // For ModelType::SVM. For poly
-    SmallInt degree = 3;
+    svmegn::SmallInt degree = 3;
 
     // For ModelType::SVM. For poly/rbf/sigmoid
     double gamma = 1.0;
@@ -101,10 +107,10 @@ struct Params
     double C = 1.0;
 
     // For ModelType::SVM/LINEAR. For C_SVC
-    VectorInt weight_label;
+    svmegn::VectorI weight_label;
 
     // For ModelType::SVM/LINEAR. For C_SVC
-    Eigen::VectorXd weight;
+    svmegn::VectorD weight;
 
     // For ModelType::SVM/LINEAR. For NU_SVC, ONE_CLASS, and NU_SVR
     double nu = 0.5;
@@ -119,7 +125,7 @@ struct Params
     bool probability = false;
 
     // For ModelType::LINEAR
-    Eigen::VectorXd init_sol;
+    svmegn::VectorD init_sol;
 
     // For ModelType::LINEAR
     bool regularize_bias = true;
@@ -151,13 +157,21 @@ public:
     operator=(Model&&);
 
     static Model
-    train(Params params, const Eigen::MatrixXd& X, const Eigen::VectorXd& y);
+    train(svmegn::Params params,
+          const svmegn::MatrixD& X,
+          const svmegn::VectorD& y);
+    static Model
+    train(svmegn::Params params,
+          const svmegn::SpaMatrixD& X,
+          const svmegn::VectorD& y);
 
-    const Params&
+    const svmegn::Params&
     params() const;
 
-    Eigen::VectorXd
-    predict(const Eigen::MatrixXd& X) const;
+    svmegn::VectorD
+    predict(const svmegn::MatrixD& X) const;
+    svmegn::VectorD
+    predict(const svmegn::SpaMatrixD& X) const;
 
     void
     save(std::ostream& os) const;
