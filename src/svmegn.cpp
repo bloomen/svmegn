@@ -548,6 +548,8 @@ struct Model::Impl
     train(Params params, const SpaMatrixD& X, const VectorD& y) = 0;
     virtual int
     nr_class() const = 0;
+    virtual std::optional<VectorI>
+    labels() const = 0;
     virtual double
     predict(const Eigen::RowVectorXd& row) const = 0;
     virtual double
@@ -599,9 +601,21 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     int
-    nr_class() const
+    nr_class() const override
     {
         return libsvm::svm_get_nr_class(m_model);
+    }
+
+    std::optional<VectorI>
+    labels() const override
+    {
+        if (m_model->label)
+        {
+            VectorI vec{nr_class()};
+            std::copy(m_model->label, m_model->label + nr_class(), vec.data());
+            return vec;
+        }
+        return std::nullopt;
     }
 
     double
@@ -1020,9 +1034,21 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     int
-    nr_class() const
+    nr_class() const override
     {
         return liblinear::get_nr_class(m_model);
+    }
+
+    std::optional<VectorI>
+    labels() const override
+    {
+        if (m_model->label)
+        {
+            VectorI vec{nr_class()};
+            std::copy(m_model->label, m_model->label + nr_class(), vec.data());
+            return vec;
+        }
+        return std::nullopt;
     }
 
     double
@@ -1254,6 +1280,18 @@ const Params&
 Model::params() const
 {
     return m_impl->params();
+}
+
+int
+Model::nr_class() const
+{
+    return m_impl->nr_class();
+}
+
+std::optional<VectorI>
+Model::labels() const
+{
+    return m_impl->labels();
 }
 
 Prediction

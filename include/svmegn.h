@@ -174,6 +174,12 @@ public:
     const svmegn::Params&
     params() const;
 
+    int
+    nr_class() const;
+
+    std::optional<VectorI>
+    labels() const;
+
     Prediction
     predict(const svmegn::MatrixD& X, bool prob = false) const;
     Prediction

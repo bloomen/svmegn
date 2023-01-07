@@ -6,7 +6,6 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 
 ## TODO
 
-* Add support for probas/values
 * Add support for cross-validation
 * Address warnings on all platforms
 * Add more tests
