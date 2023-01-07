@@ -119,15 +119,17 @@ struct Serializer<true, false>
     static void
     write(std::ostream& os, const T& value)
     {
-        const auto enum_value = static_cast<int>(value);
-        os.write(reinterpret_cast<const char*>(&enum_value), sizeof(int));
+        using type = std::underlying_type_t<T>;
+        const auto enum_value = static_cast<type>(value);
+        os.write(reinterpret_cast<const char*>(&enum_value), sizeof(type));
     }
     template <typename T>
     static void
     read(std::istream& is, T& value)
     {
-        int enum_value;
-        is.read(reinterpret_cast<char*>(&enum_value), sizeof(int));
+        using type = std::underlying_type_t<T>;
+        type enum_value;
+        is.read(reinterpret_cast<char*>(&enum_value), sizeof(type));
         value = static_cast<T>(enum_value);
     }
 };
@@ -258,8 +260,17 @@ to_svm_params(const Params& ip)
     if (op.nr_weight > 0)
     {
         SVMEGN_ASSERT(ip.weight.size() == ip.weight_label.size());
-        op.weight_label = const_cast<int*>(ip.weight_label.data());
-        op.weight = const_cast<double*>(ip.weight.data());
+        op.weight_label = allocate<int>(op.nr_weight);
+        op.weight = allocate<double>(op.nr_weight);
+        std::copy(ip.weight_label.data(),
+                  ip.weight_label.data() + op.nr_weight,
+                  op.weight_label);
+        std::copy(ip.weight.data(), ip.weight.data() + op.nr_weight, op.weight);
+    }
+    else
+    {
+        op.weight_label = nullptr;
+        op.weight = nullptr;
     }
     return op;
 }
@@ -277,8 +288,17 @@ to_linear_params(const Params& ip)
     if (op.nr_weight > 0)
     {
         SVMEGN_ASSERT(ip.weight.size() == ip.weight_label.size());
-        op.weight_label = const_cast<int*>(ip.weight_label.data());
-        op.weight = const_cast<double*>(ip.weight.data());
+        op.weight_label = allocate<int>(op.nr_weight);
+        op.weight = allocate<double>(op.nr_weight);
+        std::copy(ip.weight_label.data(),
+                  ip.weight_label.data() + op.nr_weight,
+                  op.weight_label);
+        std::copy(ip.weight.data(), ip.weight.data() + op.nr_weight, op.weight);
+    }
+    else
+    {
+        op.weight_label = nullptr;
+        op.weight = nullptr;
     }
     op.init_sol = const_cast<double*>(ip.init_sol.data());
     op.regularize_bias = ip.regularize_bias;
@@ -742,6 +762,8 @@ private:
                 std::free(model->SV[i]);
             }
         }
+        std::free(model->param.weight_label);
+        std::free(model->param.weight);
         libsvm::svm_free_and_destroy_model(&model);
         model = nullptr;
     }
@@ -962,6 +984,8 @@ private:
         {
             return;
         }
+        std::free(model->param.weight_label);
+        std::free(model->param.weight);
         liblinear::free_and_destroy_model(&model);
         model = nullptr;
     }

@@ -17,12 +17,13 @@
 #pragma GCC diagnostic pop
 #endif
 
-// TODO Use fixed size types only
-
 namespace svmegn
 {
 
-enum ModelType
+using SmallInt = std::int8_t;
+using VectorInt = Eigen::Matrix<std::int32_t, Eigen::Dynamic, Eigen::Dynamic>;
+
+enum ModelType : SmallInt
 {
     SVM = 0, // libsvm
     LINEAR = 1 // liblinear
@@ -34,7 +35,7 @@ set_print_string_function(ModelType model_type, void (*func)(const char*));
 void
 remove_print_string_function(ModelType model_type);
 
-enum class SVMType // Used for ModelType::SVM
+enum class SVMType : SmallInt // Used for ModelType::SVM
 {
     C_SVC = 0,
     NU_SVC = 1,
@@ -43,7 +44,7 @@ enum class SVMType // Used for ModelType::SVM
     NU_SVR = 4
 };
 
-enum class KernelType // Used for ModelType::SVM
+enum class KernelType : SmallInt // Used for ModelType::SVM
 {
     LINEAR = 0,
     POLY = 1,
@@ -52,7 +53,7 @@ enum class KernelType // Used for ModelType::SVM
     PRECOMPUTED = 4
 };
 
-enum class LinearType // Used for ModelType::Linear
+enum class LinearType : SmallInt // Used for ModelType::Linear
 {
     L2R_LR = 0,
     L2R_L2LOSS_SVC_DUAL = 1,
@@ -82,7 +83,7 @@ struct Params
     LinearType linear_type = LinearType::L2R_L2LOSS_SVC_DUAL;
 
     // For ModelType::SVM. For poly
-    int degree = 3;
+    SmallInt degree = 3;
 
     // For ModelType::SVM. For poly/rbf/sigmoid
     double gamma = 1.0;
@@ -100,7 +101,7 @@ struct Params
     double C = 1.0;
 
     // For ModelType::SVM/LINEAR. For C_SVC
-    Eigen::VectorXi weight_label;
+    VectorInt weight_label;
 
     // For ModelType::SVM/LINEAR. For C_SVC
     Eigen::VectorXd weight;
