@@ -20,33 +20,57 @@ generic_train_predict_impl(const svmegn::Params& params,
                            const svmegn::VectorD& y)
 {
     auto svm0 = svmegn::Model::train(params, X, y);
-    const auto p0 = svm0.predict(X);
-    ASSERT_EQ(X.rows(), p0.rows());
+    const auto p0 = svm0.predict(X, params.probability);
+    ASSERT_EQ(X.rows(), p0.y.rows());
+    if (params.probability)
+    {
+        ASSERT_EQ(X.rows(), p0.prob->rows());
+    }
     // test copy constructor
     const svmegn::Model svm1{svm0};
-    const auto p1 = svm1.predict(X);
-    ASSERT_EQ(p0, p1);
+    const auto p1 = svm1.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p1.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p1.prob);
+    }
     // test copy assignment
     svmegn::Model svm2{svm0};
     svm2 = svm1;
-    const auto p2 = svm2.predict(X);
-    ASSERT_EQ(p0, p2);
+    const auto p2 = svm2.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p2.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p2.prob);
+    }
     // test move constructor
     const svmegn::Model svm3{std::move(svm0)};
-    const auto p3 = svm3.predict(X);
-    ASSERT_EQ(p0, p3);
+    const auto p3 = svm3.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p3.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p3.prob);
+    }
     // test move assignment
     svmegn::Model svm4{svm1};
     svm4 = std::move(svm2);
-    const auto p4 = svm4.predict(X);
-    ASSERT_EQ(p0, p4);
+    const auto p4 = svm4.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p4.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p4.prob);
+    }
     // test save & load
     std::stringstream ss;
     svm4.save(ss);
     ss.seekg(0);
     const auto svm5 = svmegn::Model::load(ss);
-    const auto p5 = svm5.predict(X);
-    ASSERT_EQ(p0, p5);
+    const auto p5 = svm5.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p5.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p5.prob);
+    }
 }
 
 void
@@ -243,32 +267,36 @@ TEST(svmegn, linear_generic_combinations)
         {
             for (int bias = -1; bias < 2; ++bias)
             {
-                for (int ww = 0; ww < 2; ++ww)
+                for (int prob = 0; prob < 2; ++prob)
                 {
-                    for (int init = 0; init < 2; ++init)
+                    for (int ww = 0; ww < 2; ++ww)
                     {
-                        svmegn::Params params;
-                        params.linear_type =
-                            static_cast<svmegn::LinearType>(lin);
-                        params.regularize_bias = static_cast<bool>(regb);
-                        params.bias = bias;
-                        if (ww == 1)
+                        for (int init = 0; init < 2; ++init)
                         {
-                            params.weight_label =
-                                (Eigen::VectorXi{2} << -1, 1).finished();
-                            params.weight =
-                                (Eigen::VectorXd{2} << 0.4, 0.6).finished();
+                            svmegn::Params params;
+                            params.linear_type =
+                                static_cast<svmegn::LinearType>(lin);
+                            params.regularize_bias = static_cast<bool>(regb);
+                            params.bias = bias;
+                            params.probability = static_cast<bool>(prob);
+                            if (ww == 1)
+                            {
+                                params.weight_label =
+                                    (Eigen::VectorXi{2} << -1, 1).finished();
+                                params.weight =
+                                    (Eigen::VectorXd{2} << 0.4, 0.6).finished();
+                            }
+                            if (init == 1)
+                            {
+                                params.init_sol =
+                                    (Eigen::VectorXd{2} << 0.1, 0.9).finished();
+                            }
+                            generic_train_predict(svmegn::MatrixD{}, params);
+                            generic_train_predict(
+                                svmegn::SpaMatrixD{}, params, true);
+                            generic_train_predict(
+                                svmegn::SpaMatrixD{}, params, false);
                         }
-                        if (init == 1)
-                        {
-                            params.init_sol =
-                                (Eigen::VectorXd{2} << 0.1, 0.9).finished();
-                        }
-                        generic_train_predict(svmegn::MatrixD{}, params);
-                        generic_train_predict(
-                            svmegn::SpaMatrixD{}, params, true);
-                        generic_train_predict(
-                            svmegn::SpaMatrixD{}, params, false);
                     }
                 }
             }

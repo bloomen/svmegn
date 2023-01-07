@@ -546,10 +546,16 @@ struct Model::Impl
     train(Params params, const MatrixD& X, const VectorD& y) = 0;
     virtual void
     train(Params params, const SpaMatrixD& X, const VectorD& y) = 0;
+    virtual int
+    nr_class() const = 0;
     virtual double
     predict(const Eigen::RowVectorXd& row) const = 0;
     virtual double
     predict(SpaMatrixD::InnerIterator it) const = 0;
+    virtual std::pair<double, Eigen::RowVectorXd>
+    predict_proba(const Eigen::RowVectorXd& row) const = 0;
+    virtual std::pair<double, Eigen::RowVectorXd>
+    predict_proba(SpaMatrixD::InnerIterator it) const = 0;
     virtual void
     save(std::ostream& os) const = 0;
     virtual void
@@ -592,6 +598,12 @@ struct Model::SvmImpl : public Model::Impl
         train_impl(std::move(params), X, y);
     }
 
+    int
+    nr_class() const
+    {
+        return libsvm::svm_get_nr_class(m_model);
+    }
+
     double
     predict(const Eigen::RowVectorXd& row) const override
     {
@@ -604,6 +616,30 @@ struct Model::SvmImpl : public Model::Impl
     {
         auto record = make_svm_record(it);
         return libsvm::svm_predict(m_model, record.get());
+    }
+
+    std::pair<double, Eigen::RowVectorXd>
+    predict_proba(const Eigen::RowVectorXd& row) const
+    {
+        SVMEGN_ASSERT(libsvm::svm_check_probability_model(m_model) != 0)
+            << "model cannot estimate probas";
+        auto record = make_svm_record(row);
+        Eigen::RowVectorXd prob{nr_class()};
+        const auto y =
+            libsvm::svm_predict_probability(m_model, record.get(), prob.data());
+        return std::make_pair(std::move(y), std::move(prob));
+    }
+
+    std::pair<double, Eigen::RowVectorXd>
+    predict_proba(SpaMatrixD::InnerIterator it) const
+    {
+        SVMEGN_ASSERT(libsvm::svm_check_probability_model(m_model) != 0)
+            << "model cannot estimate probas";
+        auto record = make_svm_record(it);
+        Eigen::RowVectorXd prob{nr_class()};
+        const auto y =
+            libsvm::svm_predict_probability(m_model, record.get(), prob.data());
+        return std::make_pair(std::move(y), std::move(prob));
     }
 
     void
@@ -983,6 +1019,12 @@ struct Model::LinearImpl : public Model::Impl
         train_impl(std::move(params), X, y);
     }
 
+    int
+    nr_class() const
+    {
+        return liblinear::get_nr_class(m_model);
+    }
+
     double
     predict(const Eigen::RowVectorXd& row) const override
     {
@@ -996,6 +1038,31 @@ struct Model::LinearImpl : public Model::Impl
         int n;
         auto record = make_linear_record(it, n);
         return liblinear::predict(m_model, record.get());
+    }
+
+    std::pair<double, Eigen::RowVectorXd>
+    predict_proba(const Eigen::RowVectorXd& row) const
+    {
+        SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
+            << "model cannot estimate probas";
+        auto record = make_linear_record(row);
+        Eigen::RowVectorXd prob{nr_class()};
+        const auto y =
+            liblinear::predict_probability(m_model, record.get(), prob.data());
+        return std::make_pair(std::move(y), std::move(prob));
+    }
+
+    std::pair<double, Eigen::RowVectorXd>
+    predict_proba(SpaMatrixD::InnerIterator it) const
+    {
+        SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
+            << "model cannot estimate probas";
+        int n;
+        auto record = make_linear_record(it, n);
+        Eigen::RowVectorXd prob{nr_class()};
+        const auto y =
+            liblinear::predict_probability(m_model, record.get(), prob.data());
+        return std::make_pair(std::move(y), std::move(prob));
     }
 
     void
@@ -1189,27 +1256,56 @@ Model::params() const
     return m_impl->params();
 }
 
-VectorD
-Model::predict(const MatrixD& X) const
+Prediction
+Model::predict(const MatrixD& X, const bool prob) const
 {
-    VectorD y{X.rows()};
-    for (int i = 0; i < X.rows(); ++i)
+    Prediction pred;
+    pred.y = VectorD{X.rows()};
+    if (prob)
     {
-        y(i) = m_impl->predict(X.row(i));
+        pred.prob = MatrixD{X.rows(), m_impl->nr_class()};
+        for (int i = 0; i < X.rows(); ++i)
+        {
+            auto row = m_impl->predict_proba(X.row(i));
+            pred.y(i) = std::move(row.first);
+            pred.prob->row(i) = std::move(row.second);
+        }
     }
-    return y;
+    else
+    {
+        for (int i = 0; i < X.rows(); ++i)
+        {
+            pred.y(i) = m_impl->predict(X.row(i));
+        }
+    }
+    return pred;
 }
 
-VectorD
-Model::predict(const SpaMatrixD& X) const
+Prediction
+Model::predict(const SpaMatrixD& X, const bool prob) const
 {
-    VectorD y{X.outerSize()};
-    for (int i = 0; i < X.outerSize(); ++i)
+    Prediction pred;
+    pred.y = VectorD{X.outerSize()};
+    if (prob)
     {
-        SpaMatrixD::InnerIterator it{X, i};
-        y(i) = m_impl->predict(it);
+        pred.prob = MatrixD{X.outerSize(), m_impl->nr_class()};
+        for (int i = 0; i < X.outerSize(); ++i)
+        {
+            SpaMatrixD::InnerIterator it{X, i};
+            auto row = m_impl->predict_proba(it);
+            pred.y(i) = std::move(row.first);
+            pred.prob->row(i) = std::move(row.second);
+        }
     }
-    return y;
+    else
+    {
+        for (int i = 0; i < X.outerSize(); ++i)
+        {
+            SpaMatrixD::InnerIterator it{X, i};
+            pred.y(i) = m_impl->predict(it);
+        }
+    }
+    return pred;
 }
 
 void

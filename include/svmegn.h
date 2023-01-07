@@ -143,6 +143,12 @@ public:
     }
 };
 
+struct Prediction
+{
+    svmegn::VectorD y;
+    std::optional<svmegn::MatrixD> prob;
+};
+
 class Model
 {
 public:
@@ -168,10 +174,10 @@ public:
     const svmegn::Params&
     params() const;
 
-    svmegn::VectorD
-    predict(const svmegn::MatrixD& X) const;
-    svmegn::VectorD
-    predict(const svmegn::SpaMatrixD& X) const;
+    Prediction
+    predict(const svmegn::MatrixD& X, bool prob = false) const;
+    Prediction
+    predict(const svmegn::SpaMatrixD& X, bool prob = false) const;
 
     void
     save(std::ostream& os) const;
