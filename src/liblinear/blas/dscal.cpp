@@ -1,8 +1,6 @@
 #include "blas.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace liblinear {
 
 int dscal_(int *n, double *sa, double *sx, int *incx)
 {
@@ -47,6 +45,4 @@ int dscal_(int *n, double *sa, double *sx, int *incx)
   return 0;
 } /* dscal_ */
 
-#ifdef __cplusplus
 }
-#endif

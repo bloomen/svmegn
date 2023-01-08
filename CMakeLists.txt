@@ -70,10 +70,10 @@ svmegn_add_flags(svmegn_libsvm OFF)
 add_library(svmegn_liblinear
     src/liblinear/blas/blas.h
     src/liblinear/blas/blasp.h
-    src/liblinear/blas/daxpy.c
-    src/liblinear/blas/ddot.c
-    src/liblinear/blas/dnrm2.c
-    src/liblinear/blas/dscal.c
+    src/liblinear/blas/daxpy.cpp
+    src/liblinear/blas/ddot.cpp
+    src/liblinear/blas/dnrm2.cpp
+    src/liblinear/blas/dscal.cpp
     src/liblinear/linear.h
     src/liblinear/linear.cpp
     src/liblinear/newton.h

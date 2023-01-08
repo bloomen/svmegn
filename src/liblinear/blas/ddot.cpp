@@ -1,8 +1,6 @@
 #include "blas.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace liblinear {
 
 double ddot_(int *n, double *sx, int *incx, double *sy, int *incy)
 {
@@ -53,6 +51,4 @@ double ddot_(int *n, double *sx, int *incx, double *sy, int *incy)
   return stemp;
 } /* ddot_ */
 
-#ifdef __cplusplus
 }
-#endif

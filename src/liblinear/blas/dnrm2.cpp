@@ -1,9 +1,7 @@
 #include <math.h>  /* Needed for fabs() and sqrt() */
 #include "blas.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace liblinear {
 
 double dnrm2_(int *n, double *x, int *incx)
 {
@@ -65,6 +63,4 @@ double dnrm2_(int *n, double *x, int *incx)
 
 } /* dnrm2_ */
 
-#ifdef __cplusplus
 }
-#endif

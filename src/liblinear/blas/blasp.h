@@ -3,9 +3,7 @@
 
 /* Functions  listed in alphabetical order */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace liblinear {
 
 #ifdef F2C_COMPAT
 
@@ -433,6 +431,4 @@ int ztrsm_(char *side, char *uplo, char *transa, char *diag, int *m,
 int ztrsv_(char *uplo, char *trans, char *diag, int *n, dcomplex *a,
            int *lda, dcomplex *x, int *incx);
 
-#ifdef __cplusplus
 }
-#endif
