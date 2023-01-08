@@ -35,6 +35,9 @@ enum ModelType : SmallInt
     LINEAR = 1 // liblinear
 };
 
+int
+impl_library_version(svmegn::ModelType model_type);
+
 void
 set_print_string_function(svmegn::ModelType model_type,
                           void (*func)(const char*));

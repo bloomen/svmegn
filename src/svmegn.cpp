@@ -503,6 +503,20 @@ private:
 
 } // namespace
 
+int
+impl_library_version(const ModelType model_type)
+{
+    switch (model_type)
+    {
+    case ModelType::SVM:
+        return libsvm::libsvm_version;
+    case ModelType::LINEAR:
+        return liblinear::liblinear_version;
+    }
+    SVMEGN_ASSERT(false) << "No such model type: " << model_type;
+    return 0;
+}
+
 void
 set_print_string_function(const ModelType model_type, void (*func)(const char*))
 {
