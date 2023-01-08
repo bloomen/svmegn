@@ -6,7 +6,6 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 
 ## TODO
 
-* add getter for nr_features
 * Add more tests
 * Measure test coverage
 * Extensive doc

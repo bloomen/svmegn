@@ -556,6 +556,8 @@ struct Model::Impl
                    const VectorD& y,
                    int nr_fold) = 0;
     virtual int
+    nr_features() const = 0;
+    virtual int
     nr_class() const = 0;
     virtual std::optional<VectorI>
     labels() const = 0;
@@ -589,6 +591,7 @@ struct Model::SvmImpl : public Model::Impl
         copy_model(*svmi.m_model, *m_model);
         m_params = svmi.m_params;
         m_model->param = to_svm_params(m_params);
+        m_nr_features = svmi.m_nr_features;
     }
 
     const Params&
@@ -625,6 +628,12 @@ struct Model::SvmImpl : public Model::Impl
                    const int nr_fold) override
     {
         return cross_validate_impl(params, X, y, nr_fold);
+    }
+
+    int
+    nr_features() const override
+    {
+        return static_cast<int>(m_nr_features);
     }
 
     int
@@ -689,6 +698,7 @@ struct Model::SvmImpl : public Model::Impl
         SVMEGN_ASSERT(m_model != nullptr);
         write(os, serialize_version);
         write_parameters(os, m_params);
+        write(os, m_nr_features);
 
         const bool have_model = m_model != nullptr;
         write(os, have_model);
@@ -796,6 +806,7 @@ struct Model::SvmImpl : public Model::Impl
     {
         (void)version;
         read_parameters(is, m_params);
+        read(is, m_nr_features);
 
         bool have_model;
         read(is, have_model);
@@ -915,6 +926,7 @@ private:
     train_impl(Params params, const Mat& X, const VectorD& y)
     {
         m_params = std::move(params);
+        m_nr_features = static_cast<SizeType>(X.cols());
         const auto svm_params = to_svm_params(m_params);
         SvmProblem prob{X, y};
         const auto error =
@@ -1050,6 +1062,7 @@ private:
 
     libsvm::svm_model* m_model = nullptr;
     Params m_params;
+    SizeType m_nr_features = 0;
 };
 
 struct Model::LinearImpl : public Model::Impl
@@ -1104,6 +1117,12 @@ struct Model::LinearImpl : public Model::Impl
                    const int nr_fold) override
     {
         return cross_validate_impl(params, X, y, nr_fold);
+    }
+
+    int
+    nr_features() const override
+    {
+        return liblinear::get_nr_feature(m_model);
     }
 
     int
@@ -1390,6 +1409,12 @@ const Params&
 Model::params() const
 {
     return m_impl->params();
+}
+
+int
+Model::nr_features() const
+{
+    return m_impl->nr_features();
 }
 
 int

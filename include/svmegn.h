@@ -187,6 +187,9 @@ public:
     params() const;
 
     int
+    nr_features() const;
+
+    int
     nr_class() const;
 
     std::optional<VectorI>

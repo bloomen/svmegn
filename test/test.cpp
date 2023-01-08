@@ -148,7 +148,23 @@ generic_train_predict(const svmegn::Params& params,
                       const Mat& X,
                       const svmegn::VectorD& y)
 {
+    auto assert_model_info = [&params](const svmegn::Model& m) {
+        ASSERT_EQ(2, m.nr_features());
+        ASSERT_EQ(2, m.nr_class());
+        if (params.model_type == svmegn::ModelType::SVM &&
+            (params.svm_type == svmegn::SVMType::EPSILON_SVR ||
+             params.svm_type == svmegn::SVMType::NU_SVR ||
+             params.svm_type == svmegn::SVMType::ONE_CLASS))
+        {
+            return;
+        }
+        const auto labels = (svmegn::VectorI{2} << 1, -1).finished();
+        ASSERT_TRUE(m.labels());
+        ASSERT_EQ(labels, *m.labels());
+    };
+
     const auto svm0 = svmegn::Model::train(params, X, y);
+    assert_model_info(svm0);
     const auto p0 = svm0.predict(X, params.probability);
     ASSERT_EQ(X.rows(), p0.y.rows());
     if (params.probability)
@@ -157,6 +173,7 @@ generic_train_predict(const svmegn::Params& params,
     }
     // test copy constructor
     const svmegn::Model svm1{svm0};
+    assert_model_info(svm1);
     const auto p1 = svm1.predict(X, params.probability);
     ASSERT_EQ(p0.y, p1.y);
     if (params.probability)
@@ -166,6 +183,7 @@ generic_train_predict(const svmegn::Params& params,
     // test copy assignment
     svmegn::Model svm2{svm0};
     svm2 = svm1;
+    assert_model_info(svm2);
     const auto p2 = svm2.predict(X, params.probability);
     ASSERT_EQ(p0.y, p2.y);
     if (params.probability)
@@ -174,6 +192,7 @@ generic_train_predict(const svmegn::Params& params,
     }
     // test move constructor
     const svmegn::Model svm3{std::move(svm0)};
+    assert_model_info(svm3);
     const auto p3 = svm3.predict(X, params.probability);
     ASSERT_EQ(p0.y, p3.y);
     if (params.probability)
@@ -183,6 +202,7 @@ generic_train_predict(const svmegn::Params& params,
     // test move assignment
     svmegn::Model svm4{svm1};
     svm4 = std::move(svm2);
+    assert_model_info(svm4);
     const auto p4 = svm4.predict(X, params.probability);
     ASSERT_EQ(p0.y, p4.y);
     if (params.probability)
@@ -194,6 +214,7 @@ generic_train_predict(const svmegn::Params& params,
     svm4.save(ss);
     ss.seekg(0);
     const auto svm5 = svmegn::Model::load(ss);
+    assert_model_info(svm5);
     const auto p5 = svm5.predict(X, params.probability);
     ASSERT_EQ(p0.y, p5.y);
     if (params.probability)
