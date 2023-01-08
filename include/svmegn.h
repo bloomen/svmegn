@@ -45,7 +45,7 @@ set_print_string_function(svmegn::ModelType model_type,
 void
 remove_print_string_function(svmegn::ModelType model_type);
 
-enum class SVMType : svmegn::SmallInt // Used for ModelType::SVM
+enum class SvmType : svmegn::SmallInt // Used for ModelType::SVM
 {
     C_SVC = 0,
     NU_SVC = 1,
@@ -84,7 +84,7 @@ struct Params
     svmegn::ModelType model_type = svmegn::ModelType::SVM;
 
     // For ModelType::SVM
-    svmegn::SVMType svm_type = svmegn::SVMType::C_SVC;
+    svmegn::SvmType svm_type = svmegn::SvmType::C_SVC;
 
     // For ModelType::SVM
     svmegn::KernelType kernel_type = svmegn::KernelType::RBF;

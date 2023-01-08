@@ -152,9 +152,9 @@ generic_train_predict(const svmegn::Params& params,
         ASSERT_EQ(2, m.nr_features());
         ASSERT_EQ(2, m.nr_class());
         if (params.model_type == svmegn::ModelType::SVM &&
-            (params.svm_type == svmegn::SVMType::EPSILON_SVR ||
-             params.svm_type == svmegn::SVMType::NU_SVR ||
-             params.svm_type == svmegn::SVMType::ONE_CLASS))
+            (params.svm_type == svmegn::SvmType::EPSILON_SVR ||
+             params.svm_type == svmegn::SvmType::NU_SVR ||
+             params.svm_type == svmegn::SvmType::ONE_CLASS))
         {
             return;
         }
@@ -256,7 +256,7 @@ TEST(svmegn, svm_generic_train_predict)
                             params.coef0 = 0.5;
                         }
                         params.model_type = svmegn::ModelType::SVM;
-                        params.svm_type = static_cast<svmegn::SVMType>(svm);
+                        params.svm_type = static_cast<svmegn::SvmType>(svm);
                         params.kernel_type =
                             static_cast<svmegn::KernelType>(kern);
                         params.shrinking = static_cast<bool>(shrink);
@@ -353,7 +353,7 @@ TEST(svmegn, svm_cross_validation)
         {
             svmegn::Params params;
             params.model_type = svmegn::ModelType::SVM;
-            params.svm_type = static_cast<svmegn::SVMType>(svm);
+            params.svm_type = static_cast<svmegn::SvmType>(svm);
             params.kernel_type = static_cast<svmegn::KernelType>(kern);
             const auto data = get_test_data();
             const auto y0 =
