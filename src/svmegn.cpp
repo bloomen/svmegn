@@ -173,7 +173,7 @@ write(std::ostream& os, const T& value)
 
 template <typename T>
 void
-write_array(std::ostream& os, const T* data, const std::size_t size)
+write_array(std::ostream& os, const T* data, const SizeType size)
 {
     os.write(reinterpret_cast<const char*>(data), sizeof(T) * size);
 }
@@ -187,7 +187,7 @@ read(std::istream& is, T& value)
 
 template <typename T>
 void
-read_array(std::istream& is, T* data, const std::size_t size)
+read_array(std::istream& is, T* data, const SizeType size)
 {
     is.read(reinterpret_cast<char*>(data), sizeof(T) * size);
 }
@@ -661,7 +661,7 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(const Eigen::RowVectorXd& row) const
+    predict_proba(const Eigen::RowVectorXd& row) const override
     {
         SVMEGN_ASSERT(libsvm::svm_check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
@@ -673,7 +673,7 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(SpaMatrixD::InnerIterator it) const
+    predict_proba(SpaMatrixD::InnerIterator it) const override
     {
         SVMEGN_ASSERT(libsvm::svm_check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
@@ -704,7 +704,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 for (int i = 0; i < m_model->l; ++i)
                 {
-                    int j = 0;
+                    SizeType j = 0;
                     while (m_model->SV[i][j++].index >= 0)
                         ;
                     write(os, j);
@@ -719,7 +719,9 @@ struct Model::SvmImpl : public Model::Impl
                 const auto size = m_model->nr_class - 1;
                 for (int i = 0; i < size; ++i)
                 {
-                    write_array(os, m_model->sv_coef[i], m_model->l);
+                    write_array(os,
+                                m_model->sv_coef[i],
+                                static_cast<SizeType>(m_model->l));
                 }
             }
 
@@ -729,7 +731,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
-                write_array(os, m_model->rho, size);
+                write_array(os, m_model->rho, static_cast<SizeType>(size));
             }
 
             const bool have_probA = m_model->probA != nullptr;
@@ -738,7 +740,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
-                write_array(os, m_model->probA, size);
+                write_array(os, m_model->probA, static_cast<SizeType>(size));
             }
 
             const bool have_probB = m_model->probB != nullptr;
@@ -747,7 +749,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
-                write_array(os, m_model->probB, size);
+                write_array(os, m_model->probB, static_cast<SizeType>(size));
             }
 
             const bool have_prob_density_marks =
@@ -756,7 +758,9 @@ struct Model::SvmImpl : public Model::Impl
             if (have_prob_density_marks)
             {
                 constexpr auto size = prob_density_mark_count;
-                write_array(os, m_model->prob_density_marks, size);
+                write_array(os,
+                            m_model->prob_density_marks,
+                            static_cast<SizeType>(size));
             }
 
             const bool have_sv_indices = m_model->sv_indices != nullptr;
@@ -764,7 +768,8 @@ struct Model::SvmImpl : public Model::Impl
             if (have_sv_indices)
             {
                 const auto size = m_model->l;
-                write_array(os, m_model->sv_indices, size);
+                write_array(
+                    os, m_model->sv_indices, static_cast<SizeType>(size));
             }
 
             const bool have_label = m_model->label != nullptr;
@@ -772,7 +777,7 @@ struct Model::SvmImpl : public Model::Impl
             if (have_label)
             {
                 const auto size = m_model->nr_class;
-                write_array(os, m_model->label, size);
+                write_array(os, m_model->label, static_cast<SizeType>(size));
             }
 
             const bool have_nSV = m_model->nSV != nullptr;
@@ -780,7 +785,7 @@ struct Model::SvmImpl : public Model::Impl
             if (have_nSV)
             {
                 const auto size = m_model->nr_class;
-                write_array(os, m_model->nSV, size);
+                write_array(os, m_model->nSV, static_cast<SizeType>(size));
             }
 
             write(os, m_model->free_sv);
@@ -810,7 +815,7 @@ struct Model::SvmImpl : public Model::Impl
                 m_model->SV = allocate<libsvm::svm_node*>(m_model->l);
                 for (int i = 0; i < m_model->l; ++i)
                 {
-                    int j;
+                    SizeType j;
                     read(is, j);
                     m_model->SV[i] = allocate<libsvm::svm_node>(j);
                     read_array(is, m_model->SV[i], j);
@@ -826,7 +831,9 @@ struct Model::SvmImpl : public Model::Impl
                 for (int i = 0; i < size; ++i)
                 {
                     m_model->sv_coef[i] = allocate<double>(m_model->l);
-                    read_array(is, m_model->sv_coef[i], m_model->l);
+                    read_array(is,
+                               m_model->sv_coef[i],
+                               static_cast<SizeType>(m_model->l));
                 }
             }
 
@@ -837,7 +844,7 @@ struct Model::SvmImpl : public Model::Impl
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
                 m_model->rho = allocate<double>(size);
-                read_array(is, m_model->rho, size);
+                read_array(is, m_model->rho, static_cast<SizeType>(size));
             }
 
             bool have_probA;
@@ -847,7 +854,7 @@ struct Model::SvmImpl : public Model::Impl
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
                 m_model->probA = allocate<double>(size);
-                read_array(is, m_model->probA, size);
+                read_array(is, m_model->probA, static_cast<SizeType>(size));
             }
 
             bool have_probB;
@@ -857,7 +864,7 @@ struct Model::SvmImpl : public Model::Impl
                 const auto size =
                     m_model->nr_class * (m_model->nr_class - 1) / 2;
                 m_model->probB = allocate<double>(size);
-                read_array(is, m_model->probB, size);
+                read_array(is, m_model->probB, static_cast<SizeType>(size));
             }
 
             bool have_prob_density_marks;
@@ -866,7 +873,9 @@ struct Model::SvmImpl : public Model::Impl
             {
                 constexpr auto size = prob_density_mark_count;
                 m_model->prob_density_marks = allocate<double>(size);
-                read_array(is, m_model->prob_density_marks, size);
+                read_array(is,
+                           m_model->prob_density_marks,
+                           static_cast<SizeType>(size));
             }
 
             bool have_sv_indices;
@@ -875,7 +884,8 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->l;
                 m_model->sv_indices = allocate<int>(size);
-                read_array(is, m_model->sv_indices, size);
+                read_array(
+                    is, m_model->sv_indices, static_cast<SizeType>(size));
             }
 
             bool have_label;
@@ -884,7 +894,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->label = allocate<int>(size);
-                read_array(is, m_model->label, size);
+                read_array(is, m_model->label, static_cast<SizeType>(size));
             }
 
             bool have_nSV;
@@ -893,7 +903,7 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->nSV = allocate<int>(size);
-                read_array(is, m_model->nSV, size);
+                read_array(is, m_model->nSV, static_cast<SizeType>(size));
             }
 
             read(is, m_model->free_sv);
@@ -1131,7 +1141,7 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(const Eigen::RowVectorXd& row) const
+    predict_proba(const Eigen::RowVectorXd& row) const override
     {
         SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
@@ -1143,7 +1153,7 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(SpaMatrixD::InnerIterator it) const
+    predict_proba(SpaMatrixD::InnerIterator it) const override
     {
         SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
