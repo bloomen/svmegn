@@ -141,25 +141,26 @@ struct Serializer<false, true>
     static void
     write(std::ostream& os, const T& value)
     {
-        const auto rows = value.rows();
+        const auto rows = static_cast<SizeType>(value.rows());
         os.write(reinterpret_cast<const char*>(&rows), sizeof(rows));
-        const auto cols = value.cols();
+        const auto cols = static_cast<SizeType>(value.cols());
         os.write(reinterpret_cast<const char*>(&cols), sizeof(cols));
         os.write(reinterpret_cast<const char*>(value.data()),
-                 sizeof(typename T::value_type) * rows * cols);
+                 static_cast<std::streamsize>(sizeof(typename T::value_type) *
+                                              rows * cols));
     }
     template <typename T>
     static void
     read(std::istream& is, T& value)
     {
-        using Index = decltype(std::declval<MatrixD>().rows());
-        Index rows;
+        SizeType rows;
         is.read(reinterpret_cast<char*>(&rows), sizeof(rows));
-        Index cols;
+        SizeType cols;
         is.read(reinterpret_cast<char*>(&cols), sizeof(cols));
         T matrix{rows, cols};
         is.read(reinterpret_cast<char*>(matrix.data()),
-                sizeof(typename T::value_type) * rows * cols);
+                static_cast<std::streamsize>(sizeof(typename T::value_type) *
+                                             rows * cols));
         value = std::move(matrix);
     }
 };
@@ -175,7 +176,8 @@ template <typename T>
 void
 write_array(std::ostream& os, const T* data, const SizeType size)
 {
-    os.write(reinterpret_cast<const char*>(data), sizeof(T) * size);
+    os.write(reinterpret_cast<const char*>(data),
+             static_cast<std::streamsize>(sizeof(T) * size));
 }
 
 template <typename T>
@@ -189,7 +191,8 @@ template <typename T>
 void
 read_array(std::istream& is, T* data, const SizeType size)
 {
-    is.read(reinterpret_cast<char*>(data), sizeof(T) * size);
+    is.read(reinterpret_cast<char*>(data),
+            static_cast<std::streamsize>(sizeof(T) * size));
 }
 
 void
@@ -1183,14 +1186,17 @@ struct Model::LinearImpl : public Model::Impl
             write(os, have_w);
             if (have_w)
             {
-                write_array(os, m_model->w, m_model->nr_feature);
+                write_array(
+                    os, m_model->w, static_cast<SizeType>(m_model->nr_feature));
             }
 
             const bool have_label = m_model->label != nullptr;
             write(os, have_label);
             if (have_label)
             {
-                write_array(os, m_model->label, m_model->nr_class);
+                write_array(os,
+                            m_model->label,
+                            static_cast<SizeType>(m_model->nr_class));
             }
 
             write(os, m_model->bias);
@@ -1220,7 +1226,7 @@ struct Model::LinearImpl : public Model::Impl
             {
                 const auto size = m_model->nr_feature;
                 m_model->w = allocate<double>(size);
-                read_array(is, m_model->w, size);
+                read_array(is, m_model->w, static_cast<SizeType>(size));
             }
 
             bool have_label;
@@ -1229,7 +1235,7 @@ struct Model::LinearImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->label = allocate<int>(size);
-                read_array(is, m_model->label, size);
+                read_array(is, m_model->label, static_cast<SizeType>(size));
             }
 
             read(is, m_model->bias);
