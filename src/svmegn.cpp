@@ -360,16 +360,12 @@ make_linear_record(const Eigen::RowVectorXd& row)
 }
 
 std::unique_ptr<liblinear::feature_node, decltype(std::free)*>
-make_linear_record(SpaMatrixD::InnerIterator it, int& n_features)
+make_linear_record(SpaMatrixD::InnerIterator it)
 {
     std::vector<liblinear::feature_node> row;
     for (; it; ++it)
     {
         row.push_back({static_cast<int>(it.col()) + 1, it.value()});
-    }
-    if (row.back().index > n_features)
-    {
-        n_features = row.back().index;
     }
     row.push_back({-1, 0});
     auto record = allocate<liblinear::feature_node>(row.size());
@@ -465,14 +461,14 @@ public:
     LinearProblem(const SpaMatrixD& X, const VectorD& y, const double bias)
     {
         m_prob->l = static_cast<int>(X.outerSize());
-        m_prob->n = 0; // set further down
+        m_prob->n = static_cast<int>(X.cols());
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
         m_prob->x = allocate<liblinear::feature_node*>(m_prob->l);
         for (int i = 0; i < m_prob->l; ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
-            m_prob->x[i] = make_linear_record(it, m_prob->n).release();
+            m_prob->x[i] = make_linear_record(it).release();
         }
         m_prob->bias = bias;
     }
@@ -1138,8 +1134,7 @@ struct Model::LinearImpl : public Model::Impl
     double
     predict(SpaMatrixD::InnerIterator it) const override
     {
-        int n;
-        auto record = make_linear_record(it, n);
+        auto record = make_linear_record(it);
         return liblinear::predict(m_model, record.get());
     }
 
@@ -1160,8 +1155,7 @@ struct Model::LinearImpl : public Model::Impl
     {
         SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
-        int n;
-        auto record = make_linear_record(it, n);
+        auto record = make_linear_record(it);
         Eigen::RowVectorXd prob{nr_class()};
         const auto y =
             liblinear::predict_probability(m_model, record.get(), prob.data());
