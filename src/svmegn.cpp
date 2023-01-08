@@ -391,7 +391,7 @@ public:
 
     SvmProblem(const SpaMatrixD& X, const VectorD& y)
     {
-        m_prob->l = static_cast<int>(X.outerSize());
+        m_prob->l = static_cast<int>(X.rows());
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
         m_prob->x = allocate<libsvm::svm_node*>(m_prob->l);
@@ -460,7 +460,7 @@ public:
 
     LinearProblem(const SpaMatrixD& X, const VectorD& y, const double bias)
     {
-        m_prob->l = static_cast<int>(X.outerSize());
+        m_prob->l = static_cast<int>(X.rows());
         m_prob->n = static_cast<int>(X.cols());
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
