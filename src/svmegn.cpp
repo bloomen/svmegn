@@ -546,6 +546,16 @@ struct Model::Impl
     train(Params params, const MatrixD& X, const VectorD& y) = 0;
     virtual void
     train(Params params, const SpaMatrixD& X, const VectorD& y) = 0;
+    virtual VectorD
+    cross_validate(const Params& params,
+                   const MatrixD& X,
+                   const VectorD& y,
+                   int nr_fold) = 0;
+    virtual VectorD
+    cross_validate(const Params& params,
+                   const SpaMatrixD& X,
+                   const VectorD& y,
+                   int nr_fold) = 0;
     virtual int
     nr_class() const = 0;
     virtual std::optional<VectorI>
@@ -598,6 +608,24 @@ struct Model::SvmImpl : public Model::Impl
     train(Params params, const SpaMatrixD& X, const VectorD& y) override
     {
         train_impl(std::move(params), X, y);
+    }
+
+    VectorD
+    cross_validate(const Params& params,
+                   const MatrixD& X,
+                   const VectorD& y,
+                   const int nr_fold) override
+    {
+        return cross_validate_impl(params, X, y, nr_fold);
+    }
+
+    VectorD
+    cross_validate(const Params& params,
+                   const SpaMatrixD& X,
+                   const VectorD& y,
+                   const int nr_fold) override
+    {
+        return cross_validate_impl(params, X, y, nr_fold);
     }
 
     int
@@ -888,6 +916,24 @@ private:
         prob.set_sv_indices(m_model->sv_indices, m_model->l);
     }
 
+    template <typename Mat>
+    VectorD
+    cross_validate_impl(const Params& params,
+                        const Mat& X,
+                        const VectorD& y,
+                        const int nr_fold)
+    {
+        const auto svm_params = to_svm_params(params);
+        SvmProblem prob{X, y};
+        const auto error =
+            libsvm::svm_check_parameter(&prob.get(), &svm_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        VectorD resp{y.size()};
+        libsvm::svm_cross_validation(
+            &prob.get(), &svm_params, nr_fold, resp.data());
+        return resp;
+    }
+
     static void
     destroy_model(libsvm::svm_model*& model)
     {
@@ -1031,6 +1077,24 @@ struct Model::LinearImpl : public Model::Impl
     train(Params params, const SpaMatrixD& X, const VectorD& y) override
     {
         train_impl(std::move(params), X, y);
+    }
+
+    VectorD
+    cross_validate(const Params& params,
+                   const MatrixD& X,
+                   const VectorD& y,
+                   const int nr_fold) override
+    {
+        return cross_validate_impl(params, X, y, nr_fold);
+    }
+
+    VectorD
+    cross_validate(const Params& params,
+                   const SpaMatrixD& X,
+                   const VectorD& y,
+                   const int nr_fold) override
+    {
+        return cross_validate_impl(params, X, y, nr_fold);
     }
 
     int
@@ -1178,6 +1242,24 @@ private:
         SVMEGN_ASSERT(m_model != nullptr) << "liblinear::train() failed";
     }
 
+    template <typename Mat>
+    VectorD
+    cross_validate_impl(const Params& params,
+                        const Mat& X,
+                        const VectorD& y,
+                        const int nr_fold)
+    {
+        const auto linear_params = to_linear_params(params);
+        LinearProblem prob{X, y, m_params.bias};
+        const auto error =
+            liblinear::check_parameter(&prob.get(), &linear_params);
+        SVMEGN_ASSERT(error == nullptr) << error;
+        VectorD resp{y.size()};
+        liblinear::cross_validation(
+            &prob.get(), &linear_params, nr_fold, resp.data());
+        return resp;
+    }
+
     static void
     destroy_model(liblinear::model*& model)
     {
@@ -1274,6 +1356,24 @@ Model::train(Params params, const SpaMatrixD& X, const VectorD& y)
     model.m_impl = make_impl(params.model_type);
     model.m_impl->train(std::move(params), X, y);
     return model;
+}
+
+VectorD
+Model::cross_validate(const Params& params,
+                      const MatrixD& X,
+                      const VectorD& y,
+                      const int nr_fold)
+{
+    return make_impl(params.model_type)->cross_validate(params, X, y, nr_fold);
+}
+
+VectorD
+Model::cross_validate(const Params& params,
+                      const SpaMatrixD& X,
+                      const VectorD& y,
+                      const int nr_fold)
+{
+    return make_impl(params.model_type)->cross_validate(params, X, y, nr_fold);
 }
 
 const Params&

@@ -13,68 +13,10 @@
 namespace
 {
 
-template <typename Mat>
-void
-generic_train_predict_impl(const svmegn::Params& params,
-                           const Mat& X,
-                           const svmegn::VectorD& y)
-{
-    auto svm0 = svmegn::Model::train(params, X, y);
-    const auto p0 = svm0.predict(X, params.probability);
-    ASSERT_EQ(X.rows(), p0.y.rows());
-    if (params.probability)
-    {
-        ASSERT_EQ(X.rows(), p0.prob->rows());
-    }
-    // test copy constructor
-    const svmegn::Model svm1{svm0};
-    const auto p1 = svm1.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p1.y);
-    if (params.probability)
-    {
-        ASSERT_EQ(*p0.prob, *p1.prob);
-    }
-    // test copy assignment
-    svmegn::Model svm2{svm0};
-    svm2 = svm1;
-    const auto p2 = svm2.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p2.y);
-    if (params.probability)
-    {
-        ASSERT_EQ(*p0.prob, *p2.prob);
-    }
-    // test move constructor
-    const svmegn::Model svm3{std::move(svm0)};
-    const auto p3 = svm3.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p3.y);
-    if (params.probability)
-    {
-        ASSERT_EQ(*p0.prob, *p3.prob);
-    }
-    // test move assignment
-    svmegn::Model svm4{svm1};
-    svm4 = std::move(svm2);
-    const auto p4 = svm4.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p4.y);
-    if (params.probability)
-    {
-        ASSERT_EQ(*p0.prob, *p4.prob);
-    }
-    // test save & load
-    std::stringstream ss;
-    svm4.save(ss);
-    ss.seekg(0);
-    const auto svm5 = svmegn::Model::load(ss);
-    const auto p5 = svm5.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p5.y);
-    if (params.probability)
-    {
-        ASSERT_EQ(*p0.prob, *p5.prob);
-    }
-}
+std::unordered_set<int> not_a_linear_type{8, 9, 10, 14, 15, 16, 17, 18, 19, 20};
 
-void
-generic_train_predict(svmegn::MatrixD, const svmegn::Params& params)
+std::pair<svmegn::MatrixD, svmegn::VectorD>
+get_test_data()
 {
     const auto X = (svmegn::MatrixD{20, 2} << 1,
                     1,
@@ -138,13 +80,11 @@ generic_train_predict(svmegn::MatrixD, const svmegn::Params& params)
                     -1,
                     1)
                        .finished();
-    generic_train_predict_impl(params, X, y);
+    return std::make_pair(X, y);
 }
 
-void
-generic_train_predict(svmegn::SpaMatrixD,
-                      const svmegn::Params& params,
-                      const bool full)
+std::pair<svmegn::SpaMatrixD, svmegn::VectorD>
+get_sparse_test_data(const bool full)
 {
     std::vector<Eigen::Triplet<double>> triplets;
     triplets.push_back({0, 0, 1});
@@ -199,12 +139,72 @@ generic_train_predict(svmegn::SpaMatrixD,
                     -1,
                     1)
                        .finished();
-    generic_train_predict_impl(params, X, y);
+    return std::make_pair(X, y);
+}
+
+template <typename Mat>
+void
+generic_train_predict(const svmegn::Params& params,
+                      const Mat& X,
+                      const svmegn::VectorD& y)
+{
+    auto svm0 = svmegn::Model::train(params, X, y);
+    const auto p0 = svm0.predict(X, params.probability);
+    ASSERT_EQ(X.rows(), p0.y.rows());
+    if (params.probability)
+    {
+        ASSERT_EQ(X.rows(), p0.prob->rows());
+    }
+    // test copy constructor
+    const svmegn::Model svm1{svm0};
+    const auto p1 = svm1.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p1.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p1.prob);
+    }
+    // test copy assignment
+    svmegn::Model svm2{svm0};
+    svm2 = svm1;
+    const auto p2 = svm2.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p2.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p2.prob);
+    }
+    // test move constructor
+    const svmegn::Model svm3{std::move(svm0)};
+    const auto p3 = svm3.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p3.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p3.prob);
+    }
+    // test move assignment
+    svmegn::Model svm4{svm1};
+    svm4 = std::move(svm2);
+    const auto p4 = svm4.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p4.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p4.prob);
+    }
+    // test save & load
+    std::stringstream ss;
+    svm4.save(ss);
+    ss.seekg(0);
+    const auto svm5 = svmegn::Model::load(ss);
+    const auto p5 = svm5.predict(X, params.probability);
+    ASSERT_EQ(p0.y, p5.y);
+    if (params.probability)
+    {
+        ASSERT_EQ(*p0.prob, *p5.prob);
+    }
 }
 
 } // namespace
 
-TEST(svmegn, svm_generic_combinations)
+TEST(svmegn, svm_generic_train_predict)
 {
     for (int svm = 0; svm < 5; ++svm)
     {
@@ -239,13 +239,16 @@ TEST(svmegn, svm_generic_combinations)
                             params.weight =
                                 (Eigen::VectorXd{2} << 0.4, 0.6).finished();
                         }
-                        generic_train_predict(svmegn::MatrixD{}, params);
+                        const auto data = get_test_data();
+                        generic_train_predict(params, data.first, data.second);
+                        const auto spadata_full = get_sparse_test_data(true);
                         generic_train_predict(
-                            svmegn::SpaMatrixD{}, params, true);
+                            params, spadata_full.first, spadata_full.second);
                         if (prob == 0)
                         {
+                            const auto spadata = get_sparse_test_data(false);
                             generic_train_predict(
-                                svmegn::SpaMatrixD{}, params, false);
+                                params, spadata.first, spadata.second);
                         }
                     }
                 }
@@ -254,12 +257,11 @@ TEST(svmegn, svm_generic_combinations)
     }
 }
 
-TEST(svmegn, linear_generic_combinations)
+TEST(svmegn, linear_generic_train_predict)
 {
-    std::unordered_set<int> lin_skipped{8, 9, 10, 14, 15, 16, 17, 18, 19, 20};
     for (int lin = 0; lin < 22; ++lin)
     {
-        if (lin_skipped.count(lin) > 0)
+        if (not_a_linear_type.count(lin) > 0)
         {
             continue;
         }
@@ -291,15 +293,75 @@ TEST(svmegn, linear_generic_combinations)
                                 params.init_sol =
                                     (Eigen::VectorXd{2} << 0.1, 0.9).finished();
                             }
-                            generic_train_predict(svmegn::MatrixD{}, params);
+                            const auto data = get_test_data();
                             generic_train_predict(
-                                svmegn::SpaMatrixD{}, params, true);
-                            generic_train_predict(
-                                svmegn::SpaMatrixD{}, params, false);
+                                params, data.first, data.second);
+                            const auto spadata_full =
+                                get_sparse_test_data(true);
+                            generic_train_predict(params,
+                                                  spadata_full.first,
+                                                  spadata_full.second);
+                            if (prob == 0)
+                            {
+                                const auto spadata =
+                                    get_sparse_test_data(false);
+                                generic_train_predict(
+                                    params, spadata.first, spadata.second);
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+TEST(svmegn, svm_cross_validation)
+{
+    for (int svm = 0; svm < 5; ++svm)
+    {
+        for (int kern = 0; kern < 5; ++kern)
+        {
+            svmegn::Params params;
+            params.model_type = svmegn::ModelType::SVM;
+            params.svm_type = static_cast<svmegn::SVMType>(svm);
+            params.kernel_type = static_cast<svmegn::KernelType>(kern);
+            const auto data = get_test_data();
+            const auto y0 =
+                svmegn::Model::cross_validate(params, data.first, data.second);
+            ASSERT_EQ(data.second.size(), y0.size());
+            for (const auto full : {true, false})
+            {
+                const auto spadata = get_sparse_test_data(full);
+                const auto y1 = svmegn::Model::cross_validate(
+                    params, spadata.first, spadata.second);
+                ASSERT_EQ(spadata.second.size(), y1.size());
+            }
+        }
+    }
+}
+
+TEST(svmegn, linear_cross_validation)
+{
+    for (int lin = 0; lin < 22; ++lin)
+    {
+        if (not_a_linear_type.count(lin) > 0)
+        {
+            continue;
+        }
+        svmegn::Params params;
+        params.model_type = svmegn::ModelType::LINEAR;
+        params.linear_type = static_cast<svmegn::LinearType>(lin);
+        const auto data = get_test_data();
+        const auto y0 =
+            svmegn::Model::cross_validate(params, data.first, data.second);
+        ASSERT_EQ(data.second.size(), y0.size());
+        for (const auto full : {true, false})
+        {
+            const auto spadata = get_sparse_test_data(full);
+            const auto y1 = svmegn::Model::cross_validate(
+                params, spadata.first, spadata.second);
+            ASSERT_EQ(spadata.second.size(), y1.size());
         }
     }
 }

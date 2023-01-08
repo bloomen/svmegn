@@ -171,6 +171,17 @@ public:
           const svmegn::SpaMatrixD& X,
           const svmegn::VectorD& y);
 
+    static svmegn::VectorD
+    cross_validate(const svmegn::Params& params,
+                   const svmegn::MatrixD& X,
+                   const svmegn::VectorD& y,
+                   int nr_fold = 10);
+    static svmegn::VectorD
+    cross_validate(const svmegn::Params& params,
+                   const svmegn::SpaMatrixD& X,
+                   const svmegn::VectorD& y,
+                   int nr_fold = 10);
+
     const svmegn::Params&
     params() const;
 
