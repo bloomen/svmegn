@@ -29,7 +29,7 @@ using MatrixD =
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using SpaMatrixD = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 
-enum ModelType : SmallInt
+enum ModelType : svmegn::SmallInt
 {
     SVM = 0, // libsvm
     LINEAR = 1 // liblinear
@@ -195,12 +195,12 @@ public:
     int
     nr_class() const;
 
-    std::optional<VectorI>
+    std::optional<svmegn::VectorI>
     labels() const;
 
-    Prediction
+    svmegn::Prediction
     predict(const svmegn::MatrixD& X, bool prob = false) const;
-    Prediction
+    svmegn::Prediction
     predict(const svmegn::SpaMatrixD& X, bool prob = false) const;
 
     void
@@ -218,7 +218,7 @@ private:
     struct LinearImpl;
     friend struct LinearImpl;
     static std::unique_ptr<Impl>
-    make_impl(const ModelType);
+    make_impl(const svmegn::ModelType);
 };
 
 } // namespace svmegn
