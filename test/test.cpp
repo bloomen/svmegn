@@ -13,7 +13,6 @@
 namespace
 {
 
-constexpr double eps = 1e-6;
 std::unordered_set<int> not_a_linear_type{8, 9, 10, 14, 15, 16, 17, 18, 19, 20};
 
 std::pair<svmegn::MatrixD, svmegn::VectorD>
@@ -149,7 +148,7 @@ generic_train_predict(const svmegn::Params& params,
                       const Mat& X,
                       const svmegn::VectorD& y)
 {
-    auto svm0 = svmegn::Model::train(params, X, y);
+    const auto svm0 = svmegn::Model::train(params, X, y);
     const auto p0 = svm0.predict(X, params.probability);
     ASSERT_EQ(X.rows(), p0.y.rows());
     if (params.probability)
@@ -159,36 +158,36 @@ generic_train_predict(const svmegn::Params& params,
     // test copy constructor
     const svmegn::Model svm1{svm0};
     const auto p1 = svm1.predict(X, params.probability);
-    ASSERT_LT((p0.y - p1.y).norm(), eps);
+    ASSERT_EQ(p0.y, p1.y);
     if (params.probability)
     {
-        ASSERT_LT((*p0.prob - *p1.prob).norm(), eps);
+        ASSERT_EQ(*p0.prob, *p1.prob);
     }
     // test copy assignment
     svmegn::Model svm2{svm0};
     svm2 = svm1;
     const auto p2 = svm2.predict(X, params.probability);
-    ASSERT_LT((p0.y - p2.y).norm(), eps);
+    ASSERT_EQ(p0.y, p2.y);
     if (params.probability)
     {
-        ASSERT_LT((*p0.prob - *p2.prob).norm(), eps);
+        ASSERT_EQ(*p0.prob, *p2.prob);
     }
     // test move constructor
     const svmegn::Model svm3{std::move(svm0)};
     const auto p3 = svm3.predict(X, params.probability);
-    ASSERT_LT((p0.y - p3.y).norm(), eps);
+    ASSERT_EQ(p0.y, p3.y);
     if (params.probability)
     {
-        ASSERT_LT((*p0.prob - *p3.prob).norm(), eps);
+        ASSERT_EQ(*p0.prob, *p3.prob);
     }
     // test move assignment
     svmegn::Model svm4{svm1};
     svm4 = std::move(svm2);
     const auto p4 = svm4.predict(X, params.probability);
-    ASSERT_LT((p0.y - p4.y).norm(), eps);
+    ASSERT_EQ(p0.y, p4.y);
     if (params.probability)
     {
-        ASSERT_LT((*p0.prob - *p4.prob).norm(), eps);
+        ASSERT_EQ(*p0.prob, *p4.prob);
     }
     // test save & load
     std::stringstream ss;
@@ -196,10 +195,10 @@ generic_train_predict(const svmegn::Params& params,
     ss.seekg(0);
     const auto svm5 = svmegn::Model::load(ss);
     const auto p5 = svm5.predict(X, params.probability);
-    ASSERT_LT((p0.y - p5.y).norm(), eps);
+    ASSERT_EQ(p0.y, p5.y);
     if (params.probability)
     {
-        ASSERT_LT((*p0.prob - *p5.prob).norm(), eps);
+        ASSERT_EQ(*p0.prob, *p5.prob);
     }
 }
 
@@ -215,6 +214,14 @@ TEST(svmegn, svm_generic_train_predict)
             {
                 for (int prob = 0; prob < 2; ++prob)
                 {
+                    if (prob == 1)
+                    {
+                        if (svm == 3 || svm == 4)
+                        {
+                            // Probas dont make sense for regression
+                            continue;
+                        }
+                    }
                     for (int ww = 0; ww < 2; ++ww)
                     {
                         svmegn::Params params;
