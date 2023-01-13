@@ -23,6 +23,7 @@ namespace svmegn
 
 using SizeType = std::uint64_t;
 using SmallInt = std::int8_t;
+using LargeInt = std::int64_t;
 using VectorI = Eigen::Matrix<std::int32_t, Eigen::Dynamic, 1>;
 using VectorD = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 using MatrixD =

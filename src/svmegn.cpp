@@ -22,7 +22,7 @@ namespace svmegn
 namespace
 {
 
-constexpr int serialize_version = 0;
+constexpr SmallInt serialize_version = 0;
 constexpr int prob_density_mark_count = 10;
 
 using NodeCache = std::vector<liblinear::feature_node>;
@@ -594,7 +594,7 @@ struct Model::Impl
     virtual void
     save(std::ostream& os) const = 0;
     virtual void
-    load(std::istream& is, int version) = 0;
+    load(std::istream& is, SmallInt version) = 0;
 };
 
 struct Model::SvmImpl : public Model::Impl
@@ -726,8 +726,11 @@ struct Model::SvmImpl : public Model::Impl
         write(os, have_model);
         if (have_model)
         {
-            write(os, m_model->nr_class);
-            write(os, m_model->l);
+            const auto nr_class = static_cast<LargeInt>(m_model->nr_class);
+            write(os, nr_class);
+
+            const auto l = static_cast<LargeInt>(m_model->l);
+            write(os, l);
 
             const bool have_SV = m_model->SV != nullptr;
             write(os, have_SV);
@@ -799,8 +802,11 @@ struct Model::SvmImpl : public Model::Impl
             if (have_sv_indices)
             {
                 const auto size = m_model->l;
-                write_array(
-                    os, m_model->sv_indices, static_cast<SizeType>(size));
+                VectorI sv_indices{size};
+                std::copy(m_model->sv_indices,
+                          m_model->sv_indices + size,
+                          sv_indices.data());
+                write_array(os, sv_indices.data(), static_cast<SizeType>(size));
             }
 
             const bool have_label = m_model->label != nullptr;
@@ -808,7 +814,9 @@ struct Model::SvmImpl : public Model::Impl
             if (have_label)
             {
                 const auto size = m_model->nr_class;
-                write_array(os, m_model->label, static_cast<SizeType>(size));
+                VectorI label{size};
+                std::copy(m_model->label, m_model->label + size, label.data());
+                write_array(os, label.data(), static_cast<SizeType>(size));
             }
 
             const bool have_nSV = m_model->nSV != nullptr;
@@ -816,15 +824,18 @@ struct Model::SvmImpl : public Model::Impl
             if (have_nSV)
             {
                 const auto size = m_model->nr_class;
-                write_array(os, m_model->nSV, static_cast<SizeType>(size));
+                VectorI nSV{size};
+                std::copy(m_model->nSV, m_model->nSV + size, nSV.data());
+                write_array(os, nSV.data(), static_cast<SizeType>(size));
             }
 
-            write(os, m_model->free_sv);
+            const auto free_sv = static_cast<SmallInt>(m_model->free_sv);
+            write(os, free_sv);
         }
     }
 
     void
-    load(std::istream& is, const int version) override
+    load(std::istream& is, const SmallInt version) override
     {
         (void)version;
         read_parameters(is, m_params);
@@ -837,8 +848,14 @@ struct Model::SvmImpl : public Model::Impl
             destroy_model(m_model);
             m_model = allocate<libsvm::svm_model>(1, true);
             m_model->param = to_svm_params(m_params);
-            read(is, m_model->nr_class);
-            read(is, m_model->l);
+
+            LargeInt nr_class;
+            read(is, nr_class);
+            m_model->nr_class = static_cast<int>(nr_class);
+
+            LargeInt l;
+            read(is, l);
+            m_model->l = static_cast<int>(l);
 
             bool have_SV;
             read(is, have_SV);
@@ -916,8 +933,11 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->l;
                 m_model->sv_indices = allocate<int>(size);
-                read_array(
-                    is, m_model->sv_indices, static_cast<SizeType>(size));
+                VectorI sv_indices{size};
+                read_array(is, sv_indices.data(), static_cast<SizeType>(size));
+                std::copy(sv_indices.data(),
+                          sv_indices.data() + size,
+                          m_model->sv_indices);
             }
 
             bool have_label;
@@ -926,7 +946,9 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->label = allocate<int>(size);
-                read_array(is, m_model->label, static_cast<SizeType>(size));
+                VectorI label{size};
+                read_array(is, label.data(), static_cast<SizeType>(size));
+                std::copy(label.data(), label.data() + size, m_model->label);
             }
 
             bool have_nSV;
@@ -935,10 +957,14 @@ struct Model::SvmImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->nSV = allocate<int>(size);
-                read_array(is, m_model->nSV, static_cast<SizeType>(size));
+                VectorI nSV{size};
+                read_array(is, nSV.data(), static_cast<SizeType>(size));
+                std::copy(nSV.data(), nSV.data() + size, m_model->nSV);
             }
 
-            read(is, m_model->free_sv);
+            SmallInt free_sv;
+            read(is, free_sv);
+            m_model->free_sv = static_cast<int>(free_sv);
         }
     }
 
@@ -1214,8 +1240,11 @@ struct Model::LinearImpl : public Model::Impl
         write(os, have_model);
         if (have_model)
         {
-            write(os, m_model->nr_class);
-            write(os, m_model->nr_feature);
+            const auto nr_class = static_cast<LargeInt>(m_model->nr_class);
+            write(os, nr_class);
+
+            const auto nr_feature = static_cast<LargeInt>(m_model->nr_feature);
+            write(os, nr_feature);
 
             const bool have_w = m_model->w != nullptr;
             write(os, have_w);
@@ -1229,9 +1258,10 @@ struct Model::LinearImpl : public Model::Impl
             write(os, have_label);
             if (have_label)
             {
-                write_array(os,
-                            m_model->label,
-                            static_cast<SizeType>(m_model->nr_class));
+                const auto size = m_model->nr_class;
+                VectorI label{size};
+                std::copy(m_model->label, m_model->label + size, label.data());
+                write_array(os, label.data(), static_cast<SizeType>(size));
             }
 
             write(os, m_model->bias);
@@ -1240,7 +1270,7 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     void
-    load(std::istream& is, const int version) override
+    load(std::istream& is, const SmallInt version) override
     {
         (void)version;
         read_parameters(is, m_params);
@@ -1252,8 +1282,14 @@ struct Model::LinearImpl : public Model::Impl
             destroy_model(m_model);
             m_model = allocate<liblinear::model>(1, true);
             m_model->param = to_linear_params(m_params);
-            read(is, m_model->nr_class);
-            read(is, m_model->nr_feature);
+
+            LargeInt nr_class;
+            read(is, nr_class);
+            m_model->nr_class = static_cast<int>(nr_class);
+
+            LargeInt nr_feature;
+            read(is, nr_feature);
+            m_model->nr_feature = static_cast<int>(nr_feature);
 
             bool have_w;
             read(is, have_w);
@@ -1270,7 +1306,9 @@ struct Model::LinearImpl : public Model::Impl
             {
                 const auto size = m_model->nr_class;
                 m_model->label = allocate<int>(size);
-                read_array(is, m_model->label, static_cast<SizeType>(size));
+                VectorI label{size};
+                read_array(is, label.data(), static_cast<SizeType>(size));
+                std::copy(label.data(), label.data() + size, m_model->label);
             }
 
             read(is, m_model->bias);
@@ -1513,7 +1551,7 @@ Model::save(std::ostream& os) const
 Model
 Model::load(std::istream& is)
 {
-    int version;
+    SmallInt version;
     read(is, version);
     ModelType model_type;
     read(is, model_type);
