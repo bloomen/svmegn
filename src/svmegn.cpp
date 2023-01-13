@@ -1499,9 +1499,9 @@ Model::predict(const MatrixD& X, const bool prob) const
         pred.prob = MatrixD{X.rows(), m_impl->nr_class()};
         for (int i = 0; i < X.rows(); ++i)
         {
-            auto row = m_impl->predict_proba(X.row(i));
-            pred.y(i) = std::move(row.first);
-            pred.prob->row(i) = std::move(row.second);
+            auto resp = m_impl->predict_proba(X.row(i));
+            pred.y(i) = std::move(resp.first);
+            pred.prob->row(i) = std::move(resp.second);
         }
     }
     else
