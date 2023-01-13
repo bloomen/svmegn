@@ -25,6 +25,8 @@ namespace
 constexpr int serialize_version = 0;
 constexpr int prob_density_mark_count = 10;
 
+using NodeCache = std::vector<liblinear::feature_node>;
+
 template <typename T, typename U>
 T*
 allocate(const U size, const bool zero = false)
@@ -332,16 +334,18 @@ make_svm_record(const Eigen::RowVectorXd& row)
 }
 
 std::unique_ptr<libsvm::svm_node, decltype(std::free)*>
-make_svm_record(SpaMatrixD::InnerIterator it)
+make_svm_record(SpaMatrixD::InnerIterator it, NodeCache& row)
 {
-    std::vector<libsvm::svm_node> row;
+    row.clear();
     for (; it; ++it)
     {
         row.push_back({static_cast<int>(it.col()) + 1, it.value()});
     }
     row.push_back({-1, 0});
     auto record = allocate<libsvm::svm_node>(row.size());
-    std::copy(row.begin(), row.end(), record);
+    std::copy(row.begin(),
+              row.end(),
+              reinterpret_cast<typename NodeCache::value_type*>(record));
     return std::unique_ptr<libsvm::svm_node, decltype(std::free)*>{record,
                                                                    std::free};
 }
@@ -360,16 +364,18 @@ make_linear_record(const Eigen::RowVectorXd& row)
 }
 
 std::unique_ptr<liblinear::feature_node, decltype(std::free)*>
-make_linear_record(SpaMatrixD::InnerIterator it)
+make_linear_record(SpaMatrixD::InnerIterator it, NodeCache& row)
 {
-    std::vector<liblinear::feature_node> row;
+    row.clear();
     for (; it; ++it)
     {
         row.push_back({static_cast<int>(it.col()) + 1, it.value()});
     }
     row.push_back({-1, 0});
     auto record = allocate<liblinear::feature_node>(row.size());
-    std::copy(row.begin(), row.end(), record);
+    std::copy(row.begin(),
+              row.end(),
+              reinterpret_cast<typename NodeCache::value_type*>(record));
     return std::unique_ptr<liblinear::feature_node, decltype(std::free)*>{
         record, std::free};
 }
@@ -395,10 +401,11 @@ public:
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
         m_prob->x = allocate<libsvm::svm_node*>(m_prob->l);
+        NodeCache row;
         for (int i = 0; i < m_prob->l; ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
-            m_prob->x[i] = make_svm_record(it).release();
+            m_prob->x[i] = make_svm_record(it, row).release();
         }
     }
 
@@ -465,10 +472,11 @@ public:
         m_prob->y = allocate<double>(m_prob->l);
         std::copy(y.data(), y.data() + m_prob->l, m_prob->y);
         m_prob->x = allocate<liblinear::feature_node*>(m_prob->l);
+        NodeCache row;
         for (int i = 0; i < m_prob->l; ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
-            m_prob->x[i] = make_linear_record(it).release();
+            m_prob->x[i] = make_linear_record(it, row).release();
         }
         m_prob->bias = bias;
     }
@@ -578,11 +586,11 @@ struct Model::Impl
     virtual double
     predict(const Eigen::RowVectorXd& row) const = 0;
     virtual double
-    predict(SpaMatrixD::InnerIterator it) const = 0;
+    predict(SpaMatrixD::InnerIterator it, NodeCache& row) const = 0;
     virtual std::pair<double, Eigen::RowVectorXd>
     predict_proba(const Eigen::RowVectorXd& row) const = 0;
     virtual std::pair<double, Eigen::RowVectorXd>
-    predict_proba(SpaMatrixD::InnerIterator it) const = 0;
+    predict_proba(SpaMatrixD::InnerIterator it, NodeCache& row) const = 0;
     virtual void
     save(std::ostream& os) const = 0;
     virtual void
@@ -676,9 +684,9 @@ struct Model::SvmImpl : public Model::Impl
     }
 
     double
-    predict(SpaMatrixD::InnerIterator it) const override
+    predict(SpaMatrixD::InnerIterator it, NodeCache& row) const override
     {
-        auto record = make_svm_record(it);
+        auto record = make_svm_record(it, row);
         return libsvm::svm_predict(m_model, record.get());
     }
 
@@ -689,19 +697,19 @@ struct Model::SvmImpl : public Model::Impl
             << "model cannot estimate probas";
         auto record = make_svm_record(row);
         Eigen::RowVectorXd prob{nr_class()};
-        const auto y =
+        auto y =
             libsvm::svm_predict_probability(m_model, record.get(), prob.data());
         return std::make_pair(std::move(y), std::move(prob));
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(SpaMatrixD::InnerIterator it) const override
+    predict_proba(SpaMatrixD::InnerIterator it, NodeCache& row) const override
     {
         SVMEGN_ASSERT(libsvm::svm_check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
-        auto record = make_svm_record(it);
+        auto record = make_svm_record(it, row);
         Eigen::RowVectorXd prob{nr_class()};
-        const auto y =
+        auto y =
             libsvm::svm_predict_probability(m_model, record.get(), prob.data());
         return std::make_pair(std::move(y), std::move(prob));
     }
@@ -1165,9 +1173,9 @@ struct Model::LinearImpl : public Model::Impl
     }
 
     double
-    predict(SpaMatrixD::InnerIterator it) const override
+    predict(SpaMatrixD::InnerIterator it, NodeCache& row) const override
     {
-        auto record = make_linear_record(it);
+        auto record = make_linear_record(it, row);
         return liblinear::predict(m_model, record.get());
     }
 
@@ -1178,19 +1186,19 @@ struct Model::LinearImpl : public Model::Impl
             << "model cannot estimate probas";
         auto record = make_linear_record(row);
         Eigen::RowVectorXd prob{nr_class()};
-        const auto y =
+        auto y =
             liblinear::predict_probability(m_model, record.get(), prob.data());
         return std::make_pair(std::move(y), std::move(prob));
     }
 
     std::pair<double, Eigen::RowVectorXd>
-    predict_proba(SpaMatrixD::InnerIterator it) const override
+    predict_proba(SpaMatrixD::InnerIterator it, NodeCache& row) const override
     {
         SVMEGN_ASSERT(liblinear::check_probability_model(m_model) != 0)
             << "model cannot estimate probas";
-        auto record = make_linear_record(it);
+        auto record = make_linear_record(it, row);
         Eigen::RowVectorXd prob{nr_class()};
-        const auto y =
+        auto y =
             liblinear::predict_probability(m_model, record.get(), prob.data());
         return std::make_pair(std::move(y), std::move(prob));
     }
@@ -1473,15 +1481,16 @@ Model::predict(const SpaMatrixD& X, const bool prob) const
 {
     Prediction pred;
     pred.y = VectorD{X.outerSize()};
+    NodeCache row;
     if (prob)
     {
         pred.prob = MatrixD{X.outerSize(), m_impl->nr_class()};
         for (int i = 0; i < X.outerSize(); ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
-            auto row = m_impl->predict_proba(it);
-            pred.y(i) = std::move(row.first);
-            pred.prob->row(i) = std::move(row.second);
+            auto resp = m_impl->predict_proba(it, row);
+            pred.y(i) = std::move(resp.first);
+            pred.prob->row(i) = std::move(resp.second);
         }
     }
     else
@@ -1489,7 +1498,7 @@ Model::predict(const SpaMatrixD& X, const bool prob) const
         for (int i = 0; i < X.outerSize(); ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
-            pred.y(i) = m_impl->predict(it);
+            pred.y(i) = m_impl->predict(it, row);
         }
     }
     return pred;
