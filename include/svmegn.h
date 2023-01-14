@@ -33,9 +33,8 @@ using SpaMatrixD = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 // The model type used behind the scenes
 enum ModelType : svmegn::SmallInt
 {
-    SVM = 0, // libsvm. Linear/Non-linear regression and classification
-    LINEAR =
-        1 // liblinear. Linear regression and classification for large data sets
+    SVM = 0, // libsvm. Linear/Non-linear regression/classification
+    LINEAR = 1 // liblinear. Linear regression/classif. for large data sets
 };
 
 // Returns the version of the underlying library

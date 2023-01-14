@@ -12,6 +12,8 @@
 #include <svmegn.h>
 #include <unordered_set>
 
+//#define SVMEGN_ALL_ASSERTS
+
 namespace fs = std::filesystem;
 
 namespace
@@ -642,7 +644,9 @@ test_svm_two_class_c_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 17);
     const auto pred2 = model.predict(data.first, true);
-    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+#ifdef SVMEGN_ALL_ASSERTS
+    ASSERT_EQ(pred.y, pred2.y); // fails in release mode, why?
+#endif
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -673,7 +677,9 @@ test_svm_two_class_nu_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 17);
     const auto pred2 = model.predict(data.first, true);
-    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+#ifdef SVMEGN_ALL_ASSERTS
+    ASSERT_EQ(pred.y, pred2.y); // fails in release mode, why?
+#endif
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -684,6 +690,37 @@ TEST(svmegn, svm_two_class_nu_svc)
 {
     test_svm_two_class_nu_svc(load_two_class_data());
     test_svm_two_class_nu_svc(load_sparse_two_class_data());
+}
+
+namespace
+{
+
+template <typename Data>
+void
+test_svm_two_class_one_class(const Data& data)
+{
+    svmegn::Params params;
+    params.probability = true;
+    params.svm_type = svmegn::SvmType::ONE_CLASS;
+    params.C = 10;
+    const auto model = svmegn::Model::train(params, data.first, data.second);
+    ASSERT_EQ(data.first.cols(), model.nr_features());
+    ASSERT_EQ(2, model.nr_class());
+    const auto pred = model.predict(data.first);
+    ASSERT_EQ(data.first.rows(), pred.y.rows());
+    ASSERT_LT((data.second - pred.y).norm(), 33);
+    const auto pred2 = model.predict(data.first, true);
+    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
+}
+
+} // namespace
+
+TEST(svmegn, svm_two_class_one_class)
+{
+    test_svm_two_class_one_class(load_two_class_data());
+    test_svm_two_class_one_class(load_sparse_two_class_data());
 }
 
 namespace
@@ -760,7 +797,9 @@ test_svm_four_class_c_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 18);
     const auto pred2 = model.predict(data.first, true);
-    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+#ifdef SVMEGN_ALL_ASSERTS
+    ASSERT_EQ(pred.y, pred2.y); // fails in release mode, why?
+#endif
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -787,12 +826,14 @@ test_svm_four_class_nu_svc(const Data& data)
     params.nu = 0.01;
     const auto model = svmegn::Model::train(params, data.first, data.second);
     ASSERT_EQ(data.first.cols(), model.nr_features());
-    // ASSERT_EQ(3, model.nr_class()); fails in release mode, why?
+    ASSERT_EQ(3, model.nr_class());
     const auto pred = model.predict(data.first);
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 18);
     const auto pred2 = model.predict(data.first, true);
-    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+#ifdef SVMEGN_ALL_ASSERTS
+    ASSERT_EQ(pred.y, pred2.y); // fails in release mode, why?
+#endif
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
