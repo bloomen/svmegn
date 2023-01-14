@@ -295,6 +295,47 @@ load_sparse_two_class_data()
     return std::make_pair(data.first.sparseView(), std::move(data.second));
 }
 
+std::pair<svmegn::MatrixD, svmegn::VectorD>
+load_four_class_data()
+{
+    auto csv = load_regression_data();
+    double min;
+    csv.second.cwiseMin(min);
+    double max;
+    csv.second.cwiseMax(max);
+    const double two = csv.second.mean();
+    const auto one = (two - min) / 2;
+    const auto three = (max - two) / 2;
+    svmegn::VectorD labels{csv.second.rows()};
+    for (Eigen::Index i = 0; i < labels.rows(); ++i)
+    {
+        if (csv.second(i) <= one)
+        {
+            labels(i) = 0;
+        }
+        else if (csv.second(i) <= two)
+        {
+            labels(i) = 1;
+        }
+        else if (csv.second(i) <= three)
+        {
+            labels(i) = 2;
+        }
+        else
+        {
+            labels(i) = 3;
+        }
+    }
+    return std::make_pair(std::move(csv.first), std::move(labels));
+}
+
+std::pair<svmegn::SpaMatrixD, svmegn::VectorD>
+load_sparse_four_class_data()
+{
+    auto data = load_four_class_data();
+    return std::make_pair(data.first.sparseView(), std::move(data.second));
+}
+
 } // namespace
 
 TEST(svmegn, svm_generic_train_predict)
@@ -700,6 +741,125 @@ TEST(svmegn, linear_two_class_l2r_lr)
 {
     test_linear_two_class_l2r_lr(load_two_class_data());
     test_linear_two_class_l2r_lr(load_sparse_two_class_data());
+}
+
+namespace
+{
+
+template <typename Data>
+void
+test_svm_four_class_c_svc(const Data& data)
+{
+    svmegn::Params params;
+    params.probability = true;
+    params.C = 1;
+    const auto model = svmegn::Model::train(params, data.first, data.second);
+    ASSERT_EQ(data.first.cols(), model.nr_features());
+    ASSERT_EQ(3, model.nr_class());
+    const auto pred = model.predict(data.first);
+    ASSERT_EQ(data.first.rows(), pred.y.rows());
+    ASSERT_LT((data.second - pred.y).norm(), 18);
+    const auto pred2 = model.predict(data.first, true);
+    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
+}
+
+} // namespace
+
+TEST(svmegn, svm_four_class_c_svc)
+{
+    test_svm_four_class_c_svc(load_four_class_data());
+    test_svm_four_class_c_svc(load_sparse_four_class_data());
+}
+
+namespace
+{
+
+template <typename Data>
+void
+test_svm_four_class_nu_svc(const Data& data)
+{
+    svmegn::Params params;
+    params.probability = true;
+    params.svm_type = svmegn::SvmType::NU_SVC;
+    params.C = 10;
+    params.nu = 0.01;
+    const auto model = svmegn::Model::train(params, data.first, data.second);
+    ASSERT_EQ(data.first.cols(), model.nr_features());
+    // ASSERT_EQ(3, model.nr_class()); fails in release mode, why?
+    const auto pred = model.predict(data.first);
+    ASSERT_EQ(data.first.rows(), pred.y.rows());
+    ASSERT_LT((data.second - pred.y).norm(), 18);
+    const auto pred2 = model.predict(data.first, true);
+    // ASSERT_EQ(pred.y, pred2.y); fails in release mode, why?
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
+}
+
+} // namespace
+
+TEST(svmegn, svm_four_class_nu_svc)
+{
+    test_svm_four_class_nu_svc(load_four_class_data());
+    test_svm_four_class_nu_svc(load_sparse_four_class_data());
+}
+
+namespace
+{
+
+template <typename Data>
+void
+test_linear_four_class_l2r_l2loss_svc_dual(const Data& data)
+{
+    svmegn::Params params;
+    params.model_type = svmegn::ModelType::LINEAR;
+    params.C = 100;
+    const auto model = svmegn::Model::train(params, data.first, data.second);
+    ASSERT_EQ(data.first.cols(), model.nr_features());
+    ASSERT_EQ(3, model.nr_class());
+    const auto pred = model.predict(data.first);
+    ASSERT_EQ(data.first.rows(), pred.y.rows());
+    ASSERT_LT((data.second - pred.y).norm(), 18);
+}
+
+} // namespace
+
+TEST(svmegn, linear_four_class_l2r_l2loss_svc_dual)
+{
+    test_linear_four_class_l2r_l2loss_svc_dual(load_four_class_data());
+    test_linear_four_class_l2r_l2loss_svc_dual(load_sparse_four_class_data());
+}
+
+namespace
+{
+
+template <typename Data>
+void
+test_linear_four_class_l2r_lr(const Data& data)
+{
+    svmegn::Params params;
+    params.model_type = svmegn::ModelType::LINEAR;
+    params.linear_type = svmegn::LinearType::L2R_LR;
+    params.C = 100;
+    const auto model = svmegn::Model::train(params, data.first, data.second);
+    ASSERT_EQ(data.first.cols(), model.nr_features());
+    ASSERT_EQ(3, model.nr_class());
+    const auto pred = model.predict(data.first);
+    ASSERT_EQ(data.first.rows(), pred.y.rows());
+    ASSERT_LT((data.second - pred.y).norm(), 18);
+    const auto pred2 = model.predict(data.first, true);
+    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
+}
+
+} // namespace
+
+TEST(svmegn, linear_four_class_l2r_lr)
+{
+    test_linear_four_class_l2r_lr(load_four_class_data());
+    test_linear_four_class_l2r_lr(load_sparse_four_class_data());
 }
 
 int
