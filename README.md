@@ -4,6 +4,11 @@
 
 This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) & [liblinear](https://www.csie.ntu.edu.tw/~cjlin/liblinear/) using the [Eigen](https://eigen.tuxfamily.org) linear algebra library.
 
-## TODO
-
-* Extensive doc
+Sample code:
+```
+svmegn::Params params;
+params.C = 10;
+params.gamma = 0.1;
+const auto model = svmegn::Model::train(params, X, y);
+const auto pred = model.predict(X);
+```
