@@ -299,9 +299,9 @@ std::pair<svmegn::MatrixD, svmegn::VectorD>
 load_four_class_data()
 {
     auto csv = load_regression_data();
-    double min;
+    double min = 0;
     csv.second.cwiseMin(min);
-    double max;
+    double max = 0;
     csv.second.cwiseMax(max);
     const double two = csv.second.mean();
     const auto one = (two - min) / 2;
