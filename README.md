@@ -6,6 +6,4 @@ This a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/li
 
 ## TODO
 
-* Add more tests
-* Measure test coverage
 * Extensive doc
