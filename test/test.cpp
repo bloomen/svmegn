@@ -158,14 +158,10 @@ generic_train_predict(const svmegn::Params& params,
     auto assert_model_info = [&params](const svmegn::Model& m) {
         ASSERT_EQ(2, m.nr_features());
         ASSERT_EQ(2, m.nr_class());
-        if (params.model_type == svmegn::ModelType::SVM &&
-            (params.svm_type == svmegn::SvmType::EPSILON_SVR ||
-             params.svm_type == svmegn::SvmType::NU_SVR ||
-             params.svm_type == svmegn::SvmType::ONE_CLASS))
-        {
-            return;
-        }
-        if (params.linear_type != svmegn::LinearType::ONECLASS_SVM &&
+        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
+            params.svm_type != svmegn::SvmType::NU_SVR &&
+            params.svm_type != svmegn::SvmType::ONE_CLASS &&
+            params.linear_type != svmegn::LinearType::ONECLASS_SVM &&
             params.linear_type != svmegn::LinearType::L2R_L1LOSS_SVR_DUAL &&
             params.linear_type != svmegn::LinearType::L2R_L2LOSS_SVR_DUAL &&
             params.linear_type != svmegn::LinearType::L2R_L2LOSS_SVR)
@@ -350,14 +346,6 @@ TEST(svmegn, svm_generic_train_predict)
             {
                 for (int prob = 0; prob < 2; ++prob)
                 {
-                    if (prob == 1)
-                    {
-                        if (svm == 3 || svm == 4)
-                        {
-                            // Probas dont make sense for regression
-                            continue;
-                        }
-                    }
                     for (int ww = 0; ww < 2; ++ww)
                     {
                         svmegn::Params params;
@@ -554,6 +542,7 @@ void
 test_svm_regression_epsilon_svr(const Data& data)
 {
     svmegn::Params params;
+    params.probability = true;
     params.svm_type = svmegn::SvmType::EPSILON_SVR;
     params.C = 100;
     params.p = 0.01;
@@ -563,6 +552,10 @@ test_svm_regression_epsilon_svr(const Data& data)
     const auto pred = model.predict(data.first);
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 1);
+    const auto pred2 = model.predict(data.first, true);
+    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
 
 } // namespace
@@ -581,6 +574,7 @@ void
 test_svm_regression_nu_svr(const Data& data)
 {
     svmegn::Params params;
+    params.probability = true;
     params.svm_type = svmegn::SvmType::NU_SVR;
     params.C = 100;
     params.nu = 0.5;
@@ -590,6 +584,10 @@ test_svm_regression_nu_svr(const Data& data)
     const auto pred = model.predict(data.first);
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 1);
+    const auto pred2 = model.predict(data.first, true);
+    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
+    ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
 
 } // namespace
