@@ -92,6 +92,7 @@ set_target_properties(svmegn PROPERTIES PUBLIC_HEADER include/svmegn.h)
 install(TARGETS svmegn ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include)
 
 if(svmegn_build_tests)
+    add_definitions(-DSVMEGN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     enable_testing()
     add_executable(svmegn_test include/svmegn.h test/test.cpp)
     svmegn_add_flags(svmegn_test ON)

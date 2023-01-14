@@ -732,6 +732,9 @@ struct Model::SvmImpl : public Model::Impl
             const auto l = static_cast<LargeInt>(m_model->l);
             write(os, l);
 
+            const auto free_sv = static_cast<SmallInt>(m_model->free_sv);
+            write(os, free_sv);
+
             const bool have_SV = m_model->SV != nullptr;
             write(os, have_SV);
             if (have_SV)
@@ -828,9 +831,6 @@ struct Model::SvmImpl : public Model::Impl
                 std::copy(m_model->nSV, m_model->nSV + size, nSV.data());
                 write_array(os, nSV.data(), static_cast<SizeType>(size));
             }
-
-            const auto free_sv = static_cast<SmallInt>(m_model->free_sv);
-            write(os, free_sv);
         }
     }
 
@@ -856,6 +856,10 @@ struct Model::SvmImpl : public Model::Impl
             LargeInt l;
             read(is, l);
             m_model->l = static_cast<int>(l);
+
+            SmallInt free_sv;
+            read(is, free_sv);
+            m_model->free_sv = static_cast<int>(free_sv);
 
             bool have_SV;
             read(is, have_SV);
@@ -961,10 +965,6 @@ struct Model::SvmImpl : public Model::Impl
                 read_array(is, nSV.data(), static_cast<SizeType>(size));
                 std::copy(nSV.data(), nSV.data() + size, m_model->nSV);
             }
-
-            SmallInt free_sv;
-            read(is, free_sv);
-            m_model->free_sv = static_cast<int>(free_sv);
         }
     }
 
@@ -1028,6 +1028,7 @@ private:
         // Note: param is copied separately
         to.nr_class = from.nr_class;
         to.l = from.l;
+        to.free_sv = from.free_sv;
 
         if (from.SV)
         {
@@ -1104,8 +1105,6 @@ private:
             to.nSV = allocate<int>(size);
             std::copy(from.nSV, from.nSV + size, to.nSV);
         }
-
-        to.free_sv = from.free_sv;
     }
 
     libsvm::svm_model* m_model = nullptr;
@@ -1129,6 +1128,7 @@ struct Model::LinearImpl : public Model::Impl
         copy_model(*svmi.m_model, *m_model);
         m_params = svmi.m_params;
         m_model->param = to_linear_params(m_params);
+        m_nr_features = svmi.m_nr_features;
     }
 
     const Params&
@@ -1170,7 +1170,7 @@ struct Model::LinearImpl : public Model::Impl
     int
     nr_features() const override
     {
-        return liblinear::get_nr_feature(m_model);
+        return static_cast<int>(m_nr_features);
     }
 
     int
@@ -1235,6 +1235,7 @@ struct Model::LinearImpl : public Model::Impl
         SVMEGN_ASSERT(m_model != nullptr);
         write(os, serialize_version);
         write_parameters(os, m_params);
+        write(os, m_nr_features);
 
         const bool have_model = m_model != nullptr;
         write(os, have_model);
@@ -1246,12 +1247,28 @@ struct Model::LinearImpl : public Model::Impl
             const auto nr_feature = static_cast<LargeInt>(m_model->nr_feature);
             write(os, nr_feature);
 
+            write(os, m_model->bias);
+            write(os, m_model->rho);
+
+            auto w_size = m_model->nr_feature;
+            if (m_model->bias >= 0)
+            {
+                ++w_size;
+            }
+
+            auto nr_w = m_model->nr_class;
+            if (m_model->nr_class == 2 &&
+                m_model->param.solver_type != liblinear::MCSVM_CS)
+            {
+                nr_w = 1;
+            }
+
             const bool have_w = m_model->w != nullptr;
             write(os, have_w);
             if (have_w)
             {
                 write_array(
-                    os, m_model->w, static_cast<SizeType>(m_model->nr_feature));
+                    os, m_model->w, static_cast<SizeType>(w_size * nr_w));
             }
 
             const bool have_label = m_model->label != nullptr;
@@ -1263,9 +1280,6 @@ struct Model::LinearImpl : public Model::Impl
                 std::copy(m_model->label, m_model->label + size, label.data());
                 write_array(os, label.data(), static_cast<SizeType>(size));
             }
-
-            write(os, m_model->bias);
-            write(os, m_model->rho);
         }
     }
 
@@ -1274,6 +1288,7 @@ struct Model::LinearImpl : public Model::Impl
     {
         (void)version;
         read_parameters(is, m_params);
+        read(is, m_nr_features);
 
         bool have_model;
         read(is, have_model);
@@ -1291,11 +1306,27 @@ struct Model::LinearImpl : public Model::Impl
             read(is, nr_feature);
             m_model->nr_feature = static_cast<int>(nr_feature);
 
+            read(is, m_model->bias);
+            read(is, m_model->rho);
+
+            auto w_size = m_model->nr_feature;
+            if (m_model->bias >= 0)
+            {
+                ++w_size;
+            }
+
+            auto nr_w = m_model->nr_class;
+            if (m_model->nr_class == 2 &&
+                m_model->param.solver_type != liblinear::MCSVM_CS)
+            {
+                nr_w = 1;
+            }
+
             bool have_w;
             read(is, have_w);
             if (have_w)
             {
-                const auto size = m_model->nr_feature;
+                const auto size = w_size * nr_w;
                 m_model->w = allocate<double>(size);
                 read_array(is, m_model->w, static_cast<SizeType>(size));
             }
@@ -1310,9 +1341,6 @@ struct Model::LinearImpl : public Model::Impl
                 read_array(is, label.data(), static_cast<SizeType>(size));
                 std::copy(label.data(), label.data() + size, m_model->label);
             }
-
-            read(is, m_model->bias);
-            read(is, m_model->rho);
         }
     }
 
@@ -1322,6 +1350,7 @@ private:
     train_impl(Params params, const Mat& X, const VectorD& y)
     {
         m_params = std::move(params);
+        m_nr_features = static_cast<SizeType>(X.cols());
         const auto linear_params = to_linear_params(m_params);
         LinearProblem prob{X, y, m_params.bias};
         const auto error =
@@ -1367,11 +1396,32 @@ private:
         // Note: param is copied separately
         to.nr_class = from.nr_class;
         to.nr_feature = from.nr_feature;
+        to.bias = from.bias;
+        to.rho = from.rho;
+
+        auto w_size = to.nr_feature;
+        if (to.bias >= 0)
+        {
+            ++w_size;
+        }
+
+        auto nr_w = to.nr_class;
+        if (to.nr_class == 2 && from.param.solver_type != liblinear::MCSVM_CS)
+        {
+            nr_w = 1;
+        }
 
         if (from.w)
         {
-            to.w = allocate<double>(to.nr_feature);
-            std::copy(from.w, from.w + from.nr_feature, to.w);
+            to.w = allocate<double>(w_size * nr_w);
+            for (int i = 0; i < w_size; ++i)
+            {
+                for (int j = 0; j < nr_w; ++j)
+                {
+                    const auto index = i * nr_w + j;
+                    to.w[index] = from.w[index];
+                }
+            }
         }
 
         if (from.label)
@@ -1379,13 +1429,11 @@ private:
             to.label = allocate<int>(to.nr_class);
             std::copy(from.label, from.label + from.nr_class, to.label);
         }
-
-        to.bias = from.bias;
-        to.rho = from.rho;
     }
 
     liblinear::model* m_model = nullptr;
     Params m_params;
+    SizeType m_nr_features = 0;
 };
 
 std::unique_ptr<Model::Impl>
