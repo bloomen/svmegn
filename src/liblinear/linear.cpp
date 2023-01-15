@@ -6,6 +6,7 @@
 #include <locale.h>
 #include "linear.h"
 #include "newton.h"
+namespace svmegn {
 namespace liblinear {
 int liblinear_version = LIBLINEAR_VERSION;
 typedef signed char schar;
@@ -3781,4 +3782,5 @@ void set_print_string_function(void (*print_func)(const char*))
 		liblinear_print_string = print_func;
 }
 
+}
 }

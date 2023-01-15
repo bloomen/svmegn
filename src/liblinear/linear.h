@@ -3,6 +3,7 @@
 
 #define LIBLINEAR_VERSION 245
 
+namespace svmegn {
 namespace liblinear {
 
 extern int liblinear_version;
@@ -79,5 +80,5 @@ int check_oneclass_model(const struct model *model);
 void set_print_string_function(void (*print_func) (const char*));
 
 }
-
+}
 #endif /* _LIBLINEAR_H */

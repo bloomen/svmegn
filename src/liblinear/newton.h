@@ -1,6 +1,7 @@
 #ifndef _NEWTON_H
 #define _NEWTON_H
 
+namespace svmegn {
 namespace liblinear {
 
 class function
@@ -38,6 +39,6 @@ private:
 };
 
 }
-
+}
 #endif
 

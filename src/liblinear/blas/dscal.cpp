@@ -1,5 +1,6 @@
 #include "blas.h"
 
+namespace svmegn {
 namespace liblinear {
 
 int dscal_(int *n, double *sa, double *sx, int *incx)
@@ -45,4 +46,5 @@ int dscal_(int *n, double *sa, double *sx, int *incx)
   return 0;
 } /* dscal_ */
 
+}
 }

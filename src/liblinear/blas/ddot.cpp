@@ -1,5 +1,6 @@
 #include "blas.h"
 
+namespace svmegn {
 namespace liblinear {
 
 double ddot_(int *n, double *sx, int *incx, double *sy, int *incy)
@@ -51,4 +52,5 @@ double ddot_(int *n, double *sx, int *incx, double *sy, int *incy)
   return stemp;
 } /* ddot_ */
 
+}
 }

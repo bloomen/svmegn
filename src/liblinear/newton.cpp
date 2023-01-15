@@ -5,6 +5,7 @@
 #include "newton.h"
 #include "blas/blas.h"
 
+namespace svmegn {
 namespace liblinear {
 
 #ifndef min
@@ -245,4 +246,5 @@ void NEWTON::set_print_string(void (*print_string) (const char *buf))
 	newton_print_string = print_string;
 }
 
+}
 }

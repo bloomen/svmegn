@@ -8,6 +8,7 @@
 #ifndef BLAS_INCLUDE
 #define BLAS_INCLUDE
 
+namespace svmegn {
 namespace liblinear {
 
 /* Data types specific to BLAS implementation */
@@ -15,6 +16,7 @@ typedef struct { float r, i; } fcomplex;
 typedef struct { double r, i; } dcomplex;
 typedef int blasbool;
 
+}
 }
 
 #include "blasp.h"    /* Prototypes for all BLAS functions */
