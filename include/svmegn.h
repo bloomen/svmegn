@@ -50,7 +50,7 @@ set_print_string_function(svmegn::ModelType model_type,
 void
 remove_print_string_function(svmegn::ModelType model_type);
 
-// Classification/regression algroithm used for ModelType::SVM
+// Classification/regression algorithm used for ModelType::SVM
 enum class SvmType : svmegn::SmallInt
 {
     C_SVC = 0,
@@ -70,7 +70,7 @@ enum class KernelType : svmegn::SmallInt
     PRECOMPUTED = 4
 };
 
-// Classification/regression algroithm used for ModelType::LINEAR
+// Classification/regression algorithm used for ModelType::LINEAR
 enum class LinearType : svmegn::SmallInt
 {
     L2R_LR = 0,

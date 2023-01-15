@@ -1413,15 +1413,9 @@ private:
 
         if (from.w)
         {
-            to.w = allocate<double>(w_size * nr_w);
-            for (int i = 0; i < w_size; ++i)
-            {
-                for (int j = 0; j < nr_w; ++j)
-                {
-                    const auto index = i * nr_w + j;
-                    to.w[index] = from.w[index];
-                }
-            }
+            const auto size = w_size * nr_w;
+            to.w = allocate<double>(size);
+            std::copy(from.w, from.w + size, to.w);
         }
 
         if (from.label)
@@ -1566,12 +1560,12 @@ Prediction
 Model::predict(const SpaMatrixD& X, const bool prob) const
 {
     Prediction pred;
-    pred.y = VectorD{X.outerSize()};
+    pred.y = VectorD{X.rows()};
     NodeCache row;
     if (prob)
     {
-        pred.prob = MatrixD{X.outerSize(), m_impl->nr_class()};
-        for (int i = 0; i < X.outerSize(); ++i)
+        pred.prob = MatrixD{X.rows(), m_impl->nr_class()};
+        for (int i = 0; i < X.rows(); ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
             auto resp = m_impl->predict_proba(it, row);
@@ -1581,7 +1575,7 @@ Model::predict(const SpaMatrixD& X, const bool prob) const
     }
     else
     {
-        for (int i = 0; i < X.outerSize(); ++i)
+        for (int i = 0; i < X.rows(); ++i)
         {
             SpaMatrixD::InnerIterator it{X, i};
             pred.y(i) = m_impl->predict(it, row);
