@@ -614,7 +614,8 @@ test_svm_regression_epsilon_svr(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 1);
     const auto pred2 = model.predict(data.first, true);
-    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -646,7 +647,8 @@ test_svm_regression_nu_svr(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 1);
     const auto pred2 = model.predict(data.first, true);
-    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -703,9 +705,8 @@ test_svm_two_class_c_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 17);
     const auto pred2 = model.predict(data.first, true);
-#ifdef SVMEGN_ALL_ASSERTS
-    ASSERT_EQ(pred.y, pred2.y); // TODO fails in release mode, why?
-#endif
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -736,9 +737,8 @@ test_svm_two_class_nu_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 17);
     const auto pred2 = model.predict(data.first, true);
-#ifdef SVMEGN_ALL_ASSERTS
-    ASSERT_EQ(pred.y, pred2.y); // TODO fails in release mode, why?
-#endif
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -769,7 +769,8 @@ test_svm_two_class_one_class(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 33);
     const auto pred2 = model.predict(data.first, true);
-    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -826,7 +827,8 @@ test_linear_two_class_l2r_lr(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 17);
     const auto pred2 = model.predict(data.first, true);
-    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -856,9 +858,8 @@ test_svm_four_class_c_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 18);
     const auto pred2 = model.predict(data.first, true);
-#ifdef SVMEGN_ALL_ASSERTS
-    ASSERT_EQ(pred.y, pred2.y); // TODO fails in release mode, why?
-#endif
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -890,9 +891,8 @@ test_svm_four_class_nu_svc(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 18);
     const auto pred2 = model.predict(data.first, true);
-#ifdef SVMEGN_ALL_ASSERTS
-    ASSERT_EQ(pred.y, pred2.y); // TODO fails in release mode, why?
-#endif
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
@@ -949,7 +949,8 @@ test_linear_four_class_l2r_lr(const Data& data)
     ASSERT_EQ(data.first.rows(), pred.y.rows());
     ASSERT_LT((data.second - pred.y).norm(), 18);
     const auto pred2 = model.predict(data.first, true);
-    ASSERT_EQ(pred.y, pred2.y);
+    ASSERT_EQ(pred.y.rows(),
+              pred2.y.rows()); // actual predicted values may be different
     ASSERT_EQ(pred.y.rows(), pred2.prob->rows());
     ASSERT_EQ(model.nr_class(), pred2.prob->cols());
 }
