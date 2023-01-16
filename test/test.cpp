@@ -174,13 +174,19 @@ generic_train_predict(const svmegn::Params& params,
         }
     };
 
-    auto assert_probas = [&params](const auto& prob1, const auto& prob2) {
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-            ASSERT_EQ(prob1, prob2);
-        }
-    };
+    auto assert_prediction =
+        [&params](const auto& p0, const auto& X, const auto& model) {
+            const auto p1 = model.predict(X, params.probability);
+            ASSERT_EQ(p0.y, p1.y);
+            if (params.probability)
+            {
+                if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
+                    params.svm_type != svmegn::SvmType::NU_SVR)
+                {
+                    ASSERT_EQ(*p0.prob, *p1.prob);
+                }
+            }
+        };
 
     const auto svm0 = svmegn::Model::train(params, X, y);
     assert_model_info(svm0);
@@ -191,62 +197,32 @@ generic_train_predict(const svmegn::Params& params,
         ASSERT_EQ(X.rows(), p0.prob->rows());
     }
     // predict again
-    const auto p00 = svm0.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p00.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p00.prob);
-    }
+    assert_prediction(p0, X, svm0);
     // test copy constructor
     const svmegn::Model svm1{svm0};
     assert_model_info(svm1);
-    const auto p1 = svm0.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p1.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p1.prob);
-    }
+    assert_prediction(p0, X, svm1);
     // test copy assignment
     svmegn::Model svm2{svm0};
     svm2 = svm1;
     assert_model_info(svm2);
-    const auto p2 = svm2.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p2.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p2.prob);
-    }
+    assert_prediction(p0, X, svm2);
     // test move constructor
     const svmegn::Model svm3{std::move(svm0)};
     assert_model_info(svm3);
-    const auto p3 = svm3.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p3.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p3.prob);
-    }
+    assert_prediction(p0, X, svm3);
     // test move assignment
     svmegn::Model svm4{svm1};
     svm4 = std::move(svm2);
     assert_model_info(svm4);
-    const auto p4 = svm4.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p4.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p4.prob);
-    }
+    assert_prediction(p0, X, svm4);
     // test save & load
     std::stringstream ss;
     svm4.save(ss);
     ss.seekg(0);
     const auto svm5 = svmegn::Model::load(ss);
     assert_model_info(svm5);
-    const auto p5 = svm5.predict(X, params.probability);
-    ASSERT_EQ(p0.y, p5.y);
-    if (params.probability)
-    {
-        assert_probas(*p0.prob, *p5.prob);
-    }
+    assert_prediction(p0, X, svm5);
 }
 
 svmegn::MatrixD
