@@ -18,7 +18,7 @@ const auto prediction = model.predict(X);
 // prediction.y is now the vector of responses
 ```
 
-### Depdendencies
+### Dependencies
 
 svmegn only depends on the [Eigen](https://eigen.tuxfamily.org) header-only library.
 
