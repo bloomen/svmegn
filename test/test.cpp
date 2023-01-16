@@ -12,8 +12,6 @@
 #include <svmegn.h>
 #include <unordered_set>
 
-//#define SVMEGN_ALL_ASSERTS
-
 namespace fs = std::filesystem;
 
 namespace
@@ -176,6 +174,14 @@ generic_train_predict(const svmegn::Params& params,
         }
     };
 
+    auto assert_probas = [&params](const auto& prob1, const auto& prob2) {
+        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
+            params.svm_type != svmegn::SvmType::NU_SVR)
+        {
+            ASSERT_EQ(prob1, prob2);
+        }
+    };
+
     const auto svm0 = svmegn::Model::train(params, X, y);
     assert_model_info(svm0);
     const auto p0 = svm0.predict(X, params.probability);
@@ -189,16 +195,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p00.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p00.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p00.prob);
     }
     // test copy constructor
     const svmegn::Model svm1{svm0};
@@ -207,16 +204,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p1.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p1.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p1.prob);
     }
     // test copy assignment
     svmegn::Model svm2{svm0};
@@ -226,16 +214,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p2.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p2.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p2.prob);
     }
     // test move constructor
     const svmegn::Model svm3{std::move(svm0)};
@@ -244,16 +223,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p3.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p3.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p3.prob);
     }
     // test move assignment
     svmegn::Model svm4{svm1};
@@ -263,16 +233,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p4.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p4.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p4.prob);
     }
     // test save & load
     std::stringstream ss;
@@ -284,16 +245,7 @@ generic_train_predict(const svmegn::Params& params,
     ASSERT_EQ(p0.y, p5.y);
     if (params.probability)
     {
-#ifndef SVMEGN_ALL_ASSERTS
-        // TODO predicting twice will give different probas using SVR, why?
-        if (params.svm_type != svmegn::SvmType::EPSILON_SVR &&
-            params.svm_type != svmegn::SvmType::NU_SVR)
-        {
-#endif
-            ASSERT_EQ(*p0.prob, *p5.prob);
-#ifndef SVMEGN_ALL_ASSERTS
-        }
-#endif
+        assert_probas(*p0.prob, *p5.prob);
     }
 }
 
