@@ -2,7 +2,8 @@
 
 [![Actions](https://github.com/bloomen/svmegn/actions/workflows/svmegn-tests.yml/badge.svg?branch=main)](https://github.com/bloomen/svmegn/actions/workflows/svmegn-tests.yml?query=branch%3Amain)
 
-This is a C++ wrapper library around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) and [liblinear](https://www.csie.ntu.edu.tw/~cjlin/liblinear/) using the [Eigen](https://eigen.tuxfamily.org) linear algebra library.
+svmegn is a library for supervised learning using established techniques of support vector machines.
+It's a C++ wrapper around [libsvm](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) and [liblinear](https://www.csie.ntu.edu.tw/~cjlin/liblinear/) using the [Eigen](https://eigen.tuxfamily.org) linear algebra library.
 
 ### Sample usage
 ```cpp
