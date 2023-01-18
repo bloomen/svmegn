@@ -232,12 +232,13 @@ public:
 
 private:
     Model() = default;
+
     struct Impl;
-    std::unique_ptr<Impl> m_impl;
     struct SvmImpl;
-    friend struct SvmImpl;
     struct LinearImpl;
-    friend struct LinearImpl;
+
+    std::unique_ptr<Impl> m_impl;
+
     static std::unique_ptr<Impl>
     make_impl(const svmegn::ModelType);
 };
