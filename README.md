@@ -4,7 +4,8 @@
 
 svmegn is a C++ library for supervised learning using established methods of support vector machines.
 It is wrapping [libsvm](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) and [liblinear](https://www.csie.ntu.edu.tw/~cjlin/liblinear/)
-while using the [Eigen](https://eigen.tuxfamily.org) linear algebra library for interfacing.
+while using the [Eigen](https://eigen.tuxfamily.org) linear algebra library for interfacing. Requires a C++17 compliant compiler. Tested with Clang, GCC, and Visual Studio.
+
 
 ### Sample usage
 ```cpp
