@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include "newton.h"
-#include "blas/blas.h"
 
 namespace svmegn {
 namespace liblinear {

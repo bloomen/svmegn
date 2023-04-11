@@ -520,7 +520,7 @@ TEST(svmegn, linear_cross_validation)
 TEST(svmegn, impl_library_version)
 {
     ASSERT_EQ(331, svmegn::impl_library_version(svmegn::ModelType::SVM));
-    ASSERT_EQ(245, svmegn::impl_library_version(svmegn::ModelType::LINEAR));
+    ASSERT_EQ(246, svmegn::impl_library_version(svmegn::ModelType::LINEAR));
 }
 
 namespace
