@@ -1,7 +1,7 @@
 #ifndef _LIBSVM_H
 #define _LIBSVM_H
 
-#define LIBSVM_VERSION 330
+#define LIBSVM_VERSION 331
 
 namespace svmegn {
 namespace libsvm {
@@ -99,4 +99,5 @@ void svm_set_print_string_function(void (*print_func)(const char *));
 
 }
 }
+
 #endif /* _LIBSVM_H */
